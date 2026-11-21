@@ -242,7 +242,7 @@ export function reconcileLines(r: Reconciliation): string[] {
   if (r.shadow)
     lines.push(
       `事件新规则试运行（读者看不到）：归组 ${r.shadow.rows} 篇，其中按规则试判 ${r.shadow.judged} 篇；判为同一件事 ${r.shadow.sameFact} 篇，与现在的归组一致 ${r.shadow.agree} 篇；` +
-        `仍待模型判断 ${r.shadow.undecided} 篇（${percent(r.shadow.undecided, r.shadow.judged)}）；估计切换后这 ${r.shadow.rows} 篇至少调用模型 ${r.shadow.forecast} 次${r.shadow.confirmUpperBound === undefined ? "" : `，其中规则试判的稿件视模型回答至多再加 ${r.shadow.confirmUpperBound} 次复核`}；现网调用过模型的 ${r.shadow.liveCalled} 篇`,
+        `仍待模型判断 ${r.shadow.undecided} 篇（${percent(r.shadow.undecided, r.shadow.judged)}）；估计切换后这 ${r.shadow.rows} 篇至少调用模型 ${r.shadow.forecast} 次；另有复核和事件合并的调用，取决于模型回答；现网调用过模型的 ${r.shadow.liveCalled} 篇${r.shadow.otherModeRows ? `；另有 ${r.shadow.otherModeRows} 篇按另一种比较方式记录，未计入` : ""}`,
     );
   return lines;
 }

@@ -4,15 +4,15 @@
 //  - the rules say "same" when the row is same_fact and the candidate's fact is the target;
 //  - the live engine says "same" when both reports are members of one fact now (re-merges and manual moves included).
 // Same-fact agreement is the share of same_fact rows whose target report shares a fact with the report now.
-// The call forecast of a switch, in two parts. Certain: the calls the live path makes for the reports the rules judge
-// whatever the judge answers (would_call: an undecided report's relation call, a decided one's value or scope question),
-// plus one call for each report outside the rules on which the live engine called (those keep the live path). Bounded,
-// for the judged rows only: the review calls an undecided report may add, depending on the judge's answers (rules.ts
-// confirmUpperBound over its stored candidates), so the judged rows cost at most would_call plus the bound. Rows outside
-// the rules keep the live path and may cost the live engine more than one call (archive history: the relation call and
-// a review); their count is not recorded, so they enter only as "at least one" and the total has no upper bound.
-// Which rows: the ruleset given, else the current rules in the mode the worker last recorded (its newest row), never
-// the mode of the shell the report runs in.
+// The call forecast of a switch is a lower bound only: the calls the live path makes for the reports the rules judge
+// whatever the model answers (would_call: an undecided report's relation call, a decided one's value or scope
+// question), plus one call for each report outside the rules on which the live engine called (those keep the live
+// path). More calls follow depending on the model's answers (reviews of merge picks, story-consolidation calls when a
+// report ties stories together, a review of archive history before it attaches); the shadow does not record them and
+// gives no upper bound.
+// Which rows: the ruleset given, or the current rules in the mode given, else in the mode of the window's newest row
+// (what the worker recorded, never the environment of the process the report runs in). A window holding rows of both
+// modes is reported per mode (shadowAgreements); the headline takes the newest and counts the other's rows.
 // The recall hit rate looks only at rows where the live engine joined an existing fact, and only at the at most five
 // candidates a row stores; selection and background were read when the shadow ran, not when the live engine decided.
 // People's corrections label pairs, and both engines are scored against them: a "keep standalone" (grouping_overrides)
@@ -24,7 +24,7 @@ import { groupingAuditTrail } from "../../admin/auth.ts";
 import { sql, type Db } from "../../db.ts";
 import { shadowJobsWithFullWindow } from "../../jobs/module-queues.ts";
 import type { RecallMode } from "./recall.ts";
-import { type CandidateEvidence, confirmUpperBound } from "./rules.ts";
+import type { CandidateEvidence } from "./rules.ts";
 import { shadowRuleset } from "./shadow.ts";
 
 /** Corrections read per report window, newest first; more are reported as truncated, never silently dropped. */
@@ -47,16 +47,12 @@ export interface ShadowAgreement {
   /** Rows per verdict/rule, judged or not. */
   byRule: Record<string, number>;
   calls: {
-    /** Sum of would_call over the judged rows: the calls the live path makes for them whatever the judge answers. */
+    /** Sum of would_call over the judged rows: the calls the live path makes for them whatever the model answers. */
     wouldCall: number;
-    /** Review calls the undecided rows may add on top, depending on the judge's answers: at most this many. */
-    confirmUpperBound: number;
     /** Rows outside the rules on which the live engine called: they keep the live path, counted as one call each (at least). */
     outsideCalled: number;
-    /** wouldCall + outsideCalled: the model calls a switch would make for these reports at least. */
+    /** wouldCall + outsideCalled: the model calls a switch would make for these reports at least; no upper bound is known. */
     forecast: number;
-    /** wouldCall + confirmUpperBound: the judged rows' calls after a switch, at most. Rows outside the rules have no bound. */
-    judgedUpperBound: number;
     /** Rows (judged or outside) on which the live engine called at least once. */
     liveCalled: number;
   };
@@ -112,7 +108,7 @@ function empty(from: Date, to: Date, ruleset: string, rows: number): ShadowAgree
     decided: 0,
     undecided: 0,
     byRule: {},
-    calls: { wouldCall: 0, confirmUpperBound: 0, outsideCalled: 0, forecast: 0, judgedUpperBound: 0, liveCalled: 0 },
+    calls: { wouldCall: 0, outsideCalled: 0, forecast: 0, liveCalled: 0 },
     sameFact: { rows: 0, agree: 0 },
     pairs: { total: 0, shadowSame: 0, liveSame: 0, both: 0 },
     newEvent: { rows: 0, liveJoinedFact: 0, liveJoinedStory: 0 },
@@ -123,15 +119,23 @@ function empty(from: Date, to: Date, ruleset: string, rows: number): ShadowAgree
 }
 
 /**
- * The ruleset of the current rules in the mode the worker last recorded: the newest shadow row among the two current
- * rulesets (by the decided_at index, newest first), lexical when there is none yet. The worker decides the mode from its
- * own environment, which a report run elsewhere does not share.
+ * The current rulesets (one per recall mode) the worker recorded rows under in the window, the one with the newest row
+ * first, with their row counts: one read by the decided_at index. The worker decides the mode from its own environment,
+ * which a report run elsewhere does not share, so the rows say which mode ran.
  */
-export async function recordedShadowRuleset(db: Db = sql): Promise<string> {
+export async function shadowRulesetsIn(from: Date, to: Date, db: Db = sql): Promise<Array<{ ruleset: string; rows: number }>> {
   const current = [shadowRuleset("lexical"), shadowRuleset("vector")];
-  const [row] = await db<{ ruleset: string }[]>`SELECT ruleset FROM events.shadow_decisions WHERE ruleset=ANY(${current}::text[])
-    ORDER BY decided_at DESC LIMIT 1`;
-  return row?.ruleset ?? current[0]!;
+  return db<{ ruleset: string; rows: number }[]>`SELECT ruleset,count(*)::int AS rows FROM events.shadow_decisions
+    WHERE decided_at>=${from} AND decided_at<${to} AND ruleset=ANY(${current}::text[]) GROUP BY ruleset ORDER BY max(decided_at) DESC,ruleset`;
+}
+
+/** One report per current ruleset found in the window, the newest mode first (none: an empty report in lexical mode). */
+export async function shadowAgreements(from: Date, to: Date, opts: { auditLimit?: number } = {}, db: Db = sql): Promise<ShadowAgreement[]> {
+  const found = await shadowRulesetsIn(from, to, db);
+  if (!found.length) return [empty(from, to, shadowRuleset("lexical"), 0)];
+  const out: ShadowAgreement[] = [];
+  for (const { ruleset } of found) out.push(await shadowAgreement(from, to, { ...opts, ruleset }, db));
+  return out;
 }
 
 export async function shadowAgreement(
@@ -140,8 +144,14 @@ export async function shadowAgreement(
   opts: { ruleset?: string; mode?: RecallMode; auditLimit?: number } = {},
   db: Db = sql,
 ): Promise<ShadowAgreement> {
-  const ruleset = opts.ruleset ?? (opts.mode ? shadowRuleset(opts.mode) : await recordedShadowRuleset(db)),
-    auditLimit = opts.auditLimit ?? AUDIT_LIMIT;
+  let ruleset = opts.ruleset ?? (opts.mode ? shadowRuleset(opts.mode) : null);
+  if (!ruleset) {
+    // The mode of the window's newest row; a window without current rows has nothing more to read.
+    const [newest] = await shadowRulesetsIn(from, to, db);
+    if (!newest) return empty(from, to, shadowRuleset("lexical"), 0);
+    ruleset = newest.ruleset;
+  }
+  const auditLimit = opts.auditLimit ?? AUDIT_LIMIT;
   const rows = await db<Row[]>`SELECT article_id,verdict,rule,target_fact_id,target_story_id,candidates,would_call,live_verdict,live_fact_id,
       live_story_id,live_called,decided_at
     FROM events.shadow_decisions WHERE decided_at>=${from} AND decided_at<${to} AND ruleset=${ruleset} ORDER BY decided_at,article_id`;
@@ -189,7 +199,6 @@ export async function shadowAgreement(
     if (r.verdict === "undecided") out.undecided++;
     else out.decided++;
     out.calls.wouldCall += r.would_call;
-    out.calls.confirmUpperBound += confirmUpperBound(r.candidates);
     if (r.verdict === "same_fact") {
       out.sameFact.rows++;
       const target = r.candidates.find((c) => c.factId === r.target_fact_id);
@@ -233,8 +242,15 @@ export async function shadowAgreement(
     }
   }
   out.calls.forecast = out.calls.wouldCall + out.calls.outsideCalled;
-  out.calls.judgedUpperBound = out.calls.wouldCall + out.calls.confirmUpperBound;
   return out;
+}
+
+/** The call forecast in plain words: a lower bound, and what it leaves out (scripts/shadow-agreement.ts prints it). */
+export function shadowForecastLine(calls: ShadowAgreement["calls"]): string {
+  return (
+    `模型调用预测：切换后至少 ${calls.forecast} 次 = 规则试判的稿件无论模型怎么回答都要的 ${calls.wouldCall} 次 + 不在规则范围、现网调用过模型的 ${calls.outsideCalled} 篇各算 1 次；` +
+    `另有复核、事件合并等调用，取决于模型回答，影子不记、也不估这部分；同一批稿件里现网调用过模型的 ${calls.liveCalled} 篇`
+  );
 }
 
 /** The numbers of the daily reconciliation line (rows superseded by an editor's regroup left out throughout). */
@@ -245,15 +261,17 @@ export interface ShadowHeadline {
   sameFact: number;
   agree: number;
   undecided: number;
-  /** calls.forecast: the model calls a switch would make for these rows at least. */
+  /** calls.forecast: the model calls a switch would make for these rows at least (no upper bound is known). */
   forecast: number;
-  /** calls.confirmUpperBound: review calls that may come on top, depending on the judge's answers. Absent in days stored before it existed. */
-  confirmUpperBound?: number;
+  /** Rows of the day recorded in the other recall mode, not counted above (the worker switched mode that day). */
+  otherModeRows?: number;
   /** Rows on which the live engine called at least once. */
   liveCalled: number;
 }
 export async function shadowHeadline(from: Date, to: Date, db: Db = sql): Promise<ShadowHeadline> {
-  const a = await shadowAgreement(from, to, {}, db);
+  const found = await shadowRulesetsIn(from, to, db);
+  const a = found.length ? await shadowAgreement(from, to, { ruleset: found[0]!.ruleset }, db) : empty(from, to, shadowRuleset("lexical"), 0);
+  const otherModeRows = found.slice(1).reduce((n, f) => n + f.rows, 0);
   return {
     rows: a.judged + a.outside,
     judged: a.judged,
@@ -261,7 +279,7 @@ export async function shadowHeadline(from: Date, to: Date, db: Db = sql): Promis
     agree: a.sameFact.agree,
     undecided: a.undecided,
     forecast: a.calls.forecast,
-    confirmUpperBound: a.calls.confirmUpperBound,
     liveCalled: a.calls.liveCalled,
+    ...(otherModeRows ? { otherModeRows } : {}),
   };
 }

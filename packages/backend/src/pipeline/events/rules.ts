@@ -21,7 +21,7 @@
 //   7  anything else                                                                           → undecided
 //      Recorded as vector_missing when recall was not complete (vector mode without the report's vector, or the
 //      window reached its bound), else similar_unsure. Both cost the relation call for certain; the review calls that
-//      may follow depend on the judge's answers and are only bounded (confirmUpperBound).
+//      may follow (reviews, story consolidation) depend on the model's answers and are not bounded here.
 // Scores come in two kinds: a cosine of stored vectors, or the character-pair overlap (events/relate.ts
 // lexicalSimilarity) where a vector is missing or embeddings are off. Each bar is named for its kind
 // (CONFIRM_BELOW_COSINE, CONFIRM_BELOW_LEXICAL; certainDuplicate's 0.92 is a cosine and is applied to cosines only).
@@ -72,7 +72,7 @@ export const EVENT_RULESET = [
   `top${GROUP_ARTICLE_CANDIDATES}`,
   `confirm${CONFIRM_BELOW_COSINE}`,
   `lexconfirm${CONFIRM_BELOW_LEXICAL}`,
-  "calls-certain+review-bound",
+  "calls-certain-only",
 ].join("/");
 
 export type EventVerdict = "same_fact" | "new_event" | "undecided" | "not_judged";
@@ -162,8 +162,9 @@ export interface CandidateEvidence {
   sameDay: boolean;
   occurredGapDays: number | null;
   /**
-   * Undecided rows only: this judged fact costs the live engine a review call if its judge calls it the same occurrence,
-   * because its best report is under the confirm bar of its score kind (events/group.ts decide). Absent elsewhere.
+   * Undecided rows only, for information: the judged fact's best report is under the confirm bar of its score kind, so
+   * the live engine reviews it if its judge calls it the same occurrence (events/group.ts decide). Not a count of calls:
+   * how many calls follow depends on the model's answers (reviews, story consolidation). Absent elsewhere.
    */
   confirmIfSame?: boolean;
 }
@@ -180,22 +181,11 @@ export interface EventDecision {
   /**
    * Model calls the live path makes for this report whatever its judge answers (0 to 6): the relation call when the
    * relation step runs (it also answers the scope and value questions), else the value or scope question a decided
-   * report still needs. Never more than the live engine makes for the same candidates.
+   * report still needs. Never more than the live engine makes for the same candidates. The calls that may follow (a
+   * review of a merge pick, the story-consolidation calls when the report ties stories together) depend on the model's
+   * answers; the rules neither forecast nor bound them.
    */
   wouldCall: number;
-  /** Review calls that may come on top, depending on the judge's answers (confirmUpperBound): at most, never certain. */
-  confirmUpperBound: number;
-}
-
-/**
- * The most review calls the live engine can add after its relation call (events/group.ts decide): it reviews merge
- * picks the judge called the same occurrence, under the confirm bar, one after another until one is confirmed, then at
- * most one more for a peer of the chosen fact. So at most one per judged fact under the bar, plus one. Which of them
- * happen depends on the judge's answers, which the rules cannot know: this bounds them, it does not forecast them.
- */
-export function confirmUpperBound(candidates: ReadonlyArray<Pick<CandidateEvidence, "confirmIfSame">>): number {
-  const under = candidates.filter((c) => c.confirmIfSame === true).length;
-  return under ? under + 1 : 0;
 }
 
 /** Recall score as the live engine orders and confirms by it: cosine when both vectors are current, else the lexical overlap. */
@@ -318,7 +308,6 @@ export function decideEvent(query: EventQuery, candidates: readonly EventCandida
       similarity: best ? score(best) : null,
       candidates,
       wouldCall: Math.min(6, wouldCall),
-      confirmUpperBound: confirmUpperBound(candidates),
     };
   };
 
@@ -347,11 +336,13 @@ export function decideEvent(query: EventQuery, candidates: readonly EventCandida
   const certain = pool.find((c) => c.cosine !== null && (occurredGapDays(query, c) ?? 0) === 0 && certainDuplicate(c.cosine, query, c));
   if (certain) return decision("same_fact", "certain_duplicate", certain, valueCall(certain));
 
-  // From here on the relation step decides: one batch call, which also answers the scope and value questions. Review
-  // calls may follow, depending on its answers: they are bounded per row (confirmUpperBound), not forecast. The live
-  // engine does not know trusted days, so a date-apart fact under the bar still counts in that bound.
+  // From here on the relation step decides: one batch call, which also answers the scope and value questions. More
+  // calls may follow (reviews, story consolidation), depending on the model's answers: not counted here.
   if (pool.length && pool.every((c) => dateApart(query, c))) return decision("undecided", "date_apart", null, 1);
-  if (!query.recallComplete) return decision("undecided", "vector_missing", null, 1);
+  // Recall incomplete: candidates found are candidates the live engine has too (its pool holds the shadow's), so its
+  // relation call is certain; none found says nothing, and the live engine may have found none either, so only the
+  // calls it makes without candidates (the value or scope question) are certain.
+  if (!query.recallComplete) return decision("undecided", "vector_missing", null, pool.length ? 1 : valueCall());
   if (!pool.length)
     // An undetermined scope (one event or a roundup) is a question for the model even with nothing to compare.
     return query.scope === "unknown" ? decision("undecided", "no_candidate", null, 1) : decision("new_event", "no_candidate", null, valueCall());

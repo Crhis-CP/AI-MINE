@@ -15,7 +15,6 @@ import {
 import {
   CONFIRM_BELOW_COSINE,
   CONFIRM_BELOW_LEXICAL,
-  confirmUpperBound,
   DATE_APART_DAYS,
   EVENT_RULESET,
   type EventCandidate,
@@ -241,7 +240,11 @@ test("rule 6: only no candidate at all, with a complete recall, founds a new eve
   assert.deepEqual([d.verdict, d.rule, d.targetFactId, d.similarity, d.candidates, d.wouldCall], ["new_event", "no_candidate", null, null, [], 0]);
   assert.equal(decideEvent(query({ readingBackground: true }), []).wouldCall, 1, "the value question remains");
   const blind = decideEvent(query({ recallComplete: false }), []);
-  assert.deepEqual([blind.verdict, blind.rule, blind.wouldCall], ["undecided", "vector_missing", 1]);
+  assert.deepEqual(
+    [blind.verdict, blind.rule, blind.wouldCall],
+    ["undecided", "vector_missing", 0],
+    "no new event; and no certain call: the live engine may have found nothing either",
+  );
   const unknownScope = decideEvent(query({ scope: "unknown" }), []);
   assert.deepEqual([unknownScope.verdict, unknownScope.rule, unknownScope.wouldCall], ["undecided", "no_candidate", 1]);
   // The report itself among its candidates is ignored.
@@ -260,22 +263,22 @@ test("an undetermined scope always costs the scope call, even where a rule ties 
   assert.deepEqual([copy.verdict, copy.rule, copy.wouldCall], ["same_fact", "fingerprint", 1]);
 });
 
-test("rule 7: anything else is undecided; one relation call for certain, and at most one review per judged fact under 0.85 plus one", () => {
+test("rule 7: anything else is undecided; one relation call for certain, the facts under 0.85 marked for information", () => {
   const q = query({ fingerprint: null });
   const d = decideEvent(q, [
     candidate("a", { factId: 11, cosine: 0.9 }),
     candidate("b", { factId: 12, cosine: 0.7 }),
     candidate("c", { factId: 13, cosine: null, lexical: 0.3 }),
   ]);
-  // Whatever the judge answers the live engine makes the relation call; reviews follow only for facts it calls the same
-  // occurrence under the bar, until one is confirmed, plus at most one peer: b and c, so at most three.
-  assert.deepEqual([d.verdict, d.rule, d.wouldCall, d.confirmUpperBound, d.similarity], ["undecided", "similar_unsure", 1, 3, 0.9]);
+  // Whatever the model answers the live engine makes the relation call; reviews and story consolidation may follow,
+  // depending on its answers, and are neither forecast nor bounded. Which judged facts sit under the bar is recorded.
+  assert.deepEqual([d.verdict, d.rule, d.wouldCall, d.similarity], ["undecided", "similar_unsure", 1, 0.9]);
+  assert.ok(!("confirmUpperBound" in d), "no bound is claimed");
   assert.deepEqual(
     d.candidates.map((c) => c.confirmIfSame),
     [false, true, true],
-    "per judged fact, stored with the row",
+    "per judged fact, stored with the row, for information",
   );
-  assert.equal(confirmUpperBound(d.candidates), d.confirmUpperBound, "the bound is derived from the stored candidates");
   assert.deepEqual(
     d.candidates.map((c) => c.articleId),
     ["a", "b", "c"],
@@ -284,23 +287,34 @@ test("rule 7: anything else is undecided; one relation call for certain, and at 
   const many = Array.from({ length: 8 }, (_, i) => candidate(`m${i}`, { factId: 60 + i, cosine: 0.6 + i * 0.01 }));
   const capped = decideEvent(q, many);
   assert.equal(capped.candidates.length, 5);
-  assert.deepEqual([capped.wouldCall, capped.confirmUpperBound], [1, 6], "five judged facts under the bar: five reviews and a peer at most");
-  assert.equal(decideEvent(q, [candidate("hi", { cosine: 0.9 })]).confirmUpperBound, 0, "nothing under the bar: no review whatever the judge says");
-  assert.equal(decideEvent(query({ fingerprint: null, recallComplete: false }), many).rule, "vector_missing");
+  assert.equal(capped.wouldCall, 1);
+  assert.deepEqual(
+    [
+      decideEvent(query({ fingerprint: null, recallComplete: false }), many).rule,
+      decideEvent(query({ fingerprint: null, recallComplete: false }), many).wouldCall,
+    ],
+    ["vector_missing", 1],
+    "incomplete recall with candidates: the live engine has them too, so its relation call is certain",
+  );
+  // Incomplete recall that found nothing: the live engine may have found nothing either, so only the calls it makes
+  // without candidates are certain.
+  assert.equal(decideEvent(query({ fingerprint: null, recallComplete: false }), []).wouldCall, 0);
+  assert.equal(decideEvent(query({ fingerprint: null, recallComplete: false, readingBackground: true }), []).wouldCall, 1);
+  assert.equal(decideEvent(query({ fingerprint: null, recallComplete: false, scope: "unknown" }), []).wouldCall, 1);
 });
 
 test("candidates are judged per fact, as the live engine judges facts", () => {
   const q = query({ fingerprint: null });
   // Two reports of one fact take one judged slot and at most one review call, scored by the better report.
   const one = decideEvent(q, [candidate("a1", { factId: 1, cosine: 0.7 }), candidate("a2", { factId: 1, cosine: 0.72 })]);
-  assert.deepEqual([one.rule, one.wouldCall, one.confirmUpperBound], ["similar_unsure", 1, 2]);
+  assert.deepEqual([one.rule, one.wouldCall, one.candidates[0]!.confirmIfSame], ["similar_unsure", 1, true]);
   assert.deepEqual(
     one.candidates.map((c) => [c.factId, c.articleId]),
     [[1, "a2"]],
   );
   assert.equal(
-    decideEvent(q, [candidate("b1", { factId: 2, cosine: 0.7 }), candidate("b2", { factId: 2, cosine: 0.9 })]).confirmUpperBound,
-    0,
+    decideEvent(q, [candidate("b1", { factId: 2, cosine: 0.7 }), candidate("b2", { factId: 2, cosine: 0.9 })]).candidates[0]!.confirmIfSame,
+    false,
     "0.9 needs no review",
   );
   // Five facts are judged however many reports each has.
@@ -355,26 +369,26 @@ test("without vectors: recall complete founds a new event on no candidate, a lex
   const twin = lexical("wire", { factId: 50, storyId: 500, title: "新华社：卡莫阿铜矿三期选厂完成带料试车！", lexical: 1 });
   const near = decideEvent(q, [twin]);
   assert.deepEqual(
-    [near.verdict, near.rule, near.similarity, near.wouldCall, near.confirmUpperBound],
-    ["undecided", "similar_unsure", 1, 1, 0],
+    [near.verdict, near.rule, near.similarity, near.wouldCall, near.candidates[0]!.confirmIfSame],
+    ["undecided", "similar_unsure", 1, 1, false],
     "one relation call, no review",
   );
   assert.equal(decideEvent(q, [{ ...twin, cosine: 1 }]).rule, "certain_duplicate", "the same pair with vectors is tied");
-  // Confirm calls follow the lexical bar: at or above it no second call, below it one.
-  assert.equal(decideEvent(q, [lexical("a", { lexical: CONFIRM_BELOW_LEXICAL })]).confirmUpperBound, 0);
+  // The lexical bar marks which facts the live engine would review if its judge said same; the calls stay 1 for certain.
+  assert.equal(decideEvent(q, [lexical("a", { lexical: CONFIRM_BELOW_LEXICAL })]).candidates[0]!.confirmIfSame, false);
   assert.deepEqual(
     [
       decideEvent(q, [lexical("a", { lexical: CONFIRM_BELOW_LEXICAL - 0.01 })]).wouldCall,
-      decideEvent(q, [lexical("a", { lexical: CONFIRM_BELOW_LEXICAL - 0.01 })]).confirmUpperBound,
+      decideEvent(q, [lexical("a", { lexical: CONFIRM_BELOW_LEXICAL - 0.01 })]).candidates[0]!.confirmIfSame,
     ],
-    [1, 2],
+    [1, true],
   );
-  // A date-apart fact under the bar still counts in the bound: the live engine does not know trusted days.
+  // A date-apart fact under the bar is marked too: the live engine does not know trusted days.
   const apart = decideEvent(query({ fingerprint: null, occurredOn: "2026-11-18" }), [
     lexical("x", { factId: 1, lexical: 0.4, occurredOn: "2026-10-01" }),
     lexical("y", { factId: 2, lexical: 0.4 }),
   ]);
-  assert.deepEqual([apart.rule, apart.wouldCall, apart.confirmUpperBound], ["similar_unsure", 1, 3]);
+  assert.deepEqual([apart.rule, apart.wouldCall, apart.candidates.map((c) => c.confirmIfSame)], ["similar_unsure", 1, [true, true]]);
   // Rules 1-3 need no vector.
   assert.equal(decideEvent(q, [lexical("u", { sameUrl: true })]).rule, "same_url");
   assert.equal(decideEvent(q, [lexical("h", { sameHash: true, title: q.title })]).rule, "content_hash");

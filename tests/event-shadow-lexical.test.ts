@@ -15,7 +15,7 @@ import { getBoss, stopBoss } from "@amp/backend/jobs/queue";
 import { EMBEDDING_MODEL, embeddingsAvailable } from "@amp/backend/providers/embeddings";
 import { publishArticle } from "@amp/backend/publication/publish";
 import { recallMode } from "../packages/backend/src/pipeline/events/recall.ts";
-import { type CandidateEvidence, CONFIRM_BELOW_LEXICAL, confirmUpperBound } from "../packages/backend/src/pipeline/events/rules.ts";
+import { type CandidateEvidence, CONFIRM_BELOW_LEXICAL } from "../packages/backend/src/pipeline/events/rules.ts";
 import { shadowAgreement } from "../packages/backend/src/pipeline/events/agreement.ts";
 import { shadowDecide, shadowRuleset } from "../packages/backend/src/pipeline/events/shadow.ts";
 import { body, shadowSource, unique, WIRE } from "./event-shadow-fixture.ts";
@@ -130,16 +130,10 @@ async function both(articleId: string) {
     SELECT verdict,rule,would_call,similarity,target_fact_id,live_called,candidates FROM events.shadow_decisions
     WHERE article_id=${articleId} AND ruleset=${shadowRuleset("lexical")}`;
   assert.ok(row, "the row is stored under the lexical ruleset");
-  // The certain part never exceeds the live engine's calls. Where the rules leave the report to the relation step (or
-  // found nothing), a switch keeps the live path: the live engine's calls lie within the certain part plus the bound.
-  // A report the rules tie saves the live engine's calls, and one outside the rules is not bounded: only the first holds.
-  const bound = confirmUpperBound(row.candidates);
+  // The certain part never exceeds the live engine's calls. Nothing bounds it from above: reviews and story
+  // consolidation depend on the model's answers.
   assert.ok(row.would_call <= liveCalls, `${row.verdict}/${row.rule}: certain calls ${row.would_call} never exceed the live engine's ${liveCalls}`);
-  if (row.verdict === "undecided" || row.verdict === "new_event")
-    assert.ok(liveCalls <= row.would_call + bound, `${row.verdict}/${row.rule}: live ${liveCalls} within ${row.would_call} + at most ${bound} reviews`);
-  // A tied report needs no review; a report outside the rules has no bound at all (it keeps the live path).
-  else assert.equal(bound, 0);
-  return { live, liveCalls, row, bound, recall: outcome.state === "decided" ? outcome.recall : null };
+  return { live, liveCalls, row, recall: outcome.state === "decided" ? outcome.recall : null };
 }
 
 test("embeddings are an explicit opt-in: a DashScope key alone leaves live grouping and the shadow lexical", () => {
@@ -216,7 +210,7 @@ test("same address, same hash, near-duplicate body, unrelated and a lexical near
   assert.deepEqual([copy.row.verdict, copy.row.rule, copy.row.target_fact_id, copy.row.would_call], ["same_fact", "fingerprint", wire.live.factId, 0]);
 
   // A lexical near-match: alike wording, different bodies, other sources. Neither engine ties it without the judge;
-  // under the lexical confirm bar the live engine also asks the review call, which the bound allows for.
+  // under the lexical confirm bar the live engine also asks the review call, which depends on the judge's answer.
   const nearWords = unique(10);
   const baseSummary = `${nearWords}锂矿项目签约，${unique(30)}`;
   const base = await both(await report({ source: await shadowSource(), title: `${nearWords}锂矿项目签约`, summary: baseSummary, body: body() }));
@@ -229,8 +223,8 @@ test("same address, same hash, near-duplicate body, unrelated and a lexical near
     `overlap ${near.row.similarity} between the floor and the confirm bar`,
   );
   assert.deepEqual(
-    [near.liveCalls, near.row.verdict, near.row.rule, near.row.would_call, near.bound],
-    [2, "undecided", "similar_unsure", 1, 2],
+    [near.liveCalls, near.row.verdict, near.row.rule, near.row.would_call, near.row.candidates[0]!.confirmIfSame],
+    [2, "undecided", "similar_unsure", 1, true],
     "judge and review",
   );
   // The same wording on another body from another site: above the confirm bar, one call each, and no certain duplicate
@@ -247,7 +241,7 @@ test("same address, same hash, near-duplicate body, unrelated and a lexical near
   assert.equal((await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM embeddings`)[0]!.n, 0, "and stored none");
 });
 
-test("several weak facts: the relation call is certain, the reviews depend on the judge and stay within the bound", async (t) => {
+test("several weak facts: the relation call is certain; reviews and story consolidation depend on the model and are not bounded", async (t) => {
   t.after(() => {
     judge = () => "SAME_OCCURRENCE";
   });
@@ -270,11 +264,7 @@ test("several weak facts: the relation call is certain, the reviews depend on th
   const unrelated = await both(await report({ source: await shadowSource(), title: `${coreA}${unique(6)}`, summary: unique(14), body: body() }));
   assert.ok(unrelated.row.similarity! >= 0.25 && unrelated.row.similarity! < CONFIRM_BELOW_LEXICAL, `overlap ${unrelated.row.similarity}`);
   assert.equal(unrelated.row.candidates.length, 3, "three judged facts");
-  assert.deepEqual(
-    [unrelated.liveCalls, unrelated.row.verdict, unrelated.row.would_call, unrelated.bound],
-    [1, "undecided", 1, 4],
-    "certain 1 = live 1; three reviews and a peer at most, none made",
-  );
+  assert.deepEqual([unrelated.liveCalls, unrelated.row.verdict, unrelated.row.would_call], [1, "undecided", 1], "certain 1 = live 1");
 
   // The judge calls only the second fact the same occurrence: one review confirms it.
   const coreB = unique(10),
@@ -283,7 +273,37 @@ test("several weak facts: the relation call is certain, the reviews depend on th
   judge = (block) => (block.includes(marker) ? "SAME_OCCURRENCE" : "UNRELATED");
   const second = await both(await report({ source: await shadowSource(), title: `${coreB}${unique(6)}`, summary: unique(14), body: body() }));
   assert.deepEqual([second.live.verdict, second.live.factId], ["same-fact", facts[1]], "live joined the second fact after its review");
-  assert.deepEqual([second.liveCalls, second.row.verdict, second.row.would_call, second.bound], [2, "undecided", 1, 4], "certain 1 <= live 2 <= 1 + 4");
+  assert.deepEqual([second.liveCalls, second.row.verdict, second.row.would_call], [2, "undecided", 1], "certain 1 <= live 2");
+
+  // The judge calls all three the same occurrence, in three stories: the live engine joins one and then consolidates the
+  // stories the report ties together, judging each pair of stories (events/group.ts consolidate). The certain part stays
+  // 1 and nothing caps the rest.
+  const coreC = unique(10);
+  await seed(coreC, unique(4));
+  judge = () => "SAME_OCCURRENCE";
+  const three = await both(await report({ source: await shadowSource(), title: `${coreC}${unique(6)}`, summary: unique(14), body: body() }));
+  t.diagnostic(`three stories, all judged the same occurrence: live ${three.liveCalls} calls, certain ${three.row.would_call}`);
+  assert.equal(three.row.would_call, 1);
+  assert.ok(three.liveCalls >= 4, `live ${three.liveCalls}: relation call, review and story-consolidation calls`);
+});
+
+test("no output claims an upper bound on the calls", async () => {
+  const { shadowForecastLine } = await import("../packages/backend/src/pipeline/events/agreement.ts");
+  const { reconcileLines } = await import("@amp/backend/operations/reconcile");
+  const line = shadowForecastLine({ wouldCall: 3, outsideCalled: 2, forecast: 5, liveCalled: 4 });
+  const day = reconcileLines({
+    day: "2026-11-18",
+    sources: { enabled: 0, withNew: 0, silent: { failing: 0, waiting: 0, unstable: 0, overdue: 0, unknown: 0, quiet: 0 } },
+    flow: { collected: 0, public: 0, selected: 0, scoredNotPublic: 0 },
+    translation: { due: 0, missing: 0 },
+    balance: [],
+    shadow: { rows: 9, judged: 8, sameFact: 2, agree: 1, undecided: 5, forecast: 5, liveCalled: 4 },
+  }).at(-1)!;
+  for (const text of [line, day]) {
+    assert.match(text, /至少 ?(调用模型 )?5 次/);
+    assert.doesNotMatch(text, /至多|上限|最多|at most|upper/i, "a lower bound only");
+    assert.match(text, /取决于模型回答/, "and it says the rest depends on the model");
+  }
 });
 
 test("a report outside the rules can cost the live engine more than one call: the report counts it only as at least one", async (t) => {
@@ -308,11 +328,7 @@ test("a report outside the rules can cost the live engine more than one call: th
     FROM events.shadow_decisions WHERE article_id=${oldId} AND ruleset=${shadowRuleset("lexical")}`;
   const a = await shadowAgreement(at!.from, at!.to, { mode: "lexical" });
   assert.equal(a.rows, 1);
-  assert.deepEqual(
-    [a.calls.outsideCalled, a.calls.forecast, a.calls.judgedUpperBound],
-    [1, 1, 0],
-    "the two live calls enter as at least one; no upper bound covers rows outside the rules",
-  );
+  assert.deepEqual([a.calls.outsideCalled, a.calls.forecast], [1, 1], "the two live calls enter as at least one");
 });
 
 test("opted in, live grouping does embed: the switch is what decides, not the key", async () => {

@@ -276,7 +276,11 @@ test("a report like nothing else is a new event without embeddings, as live; wit
   await withVectors(async () => {
     await shadowDecide(lone);
     row = (await shadowRow(lone))!;
-    assert.deepEqual([row.verdict, row.rule, row.would_call], ["undecided", "vector_missing", 1], "vector mode without the report's vector");
+    assert.deepEqual(
+      [row.verdict, row.rule, row.would_call],
+      ["undecided", "vector_missing", 0],
+      "vector mode without the report's vector: no new event, and nothing found means no certain call",
+    );
     // Three dimensions: no other test stores vectors of this size, so nothing else is comparable with it.
     await vector(lone, "query", [0.2, 0.9, 0.1]);
     await shadowDecide(lone);

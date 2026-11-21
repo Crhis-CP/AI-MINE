@@ -61,8 +61,6 @@ export type ShadowOutcome =
       verdict: EventDecision["verdict"];
       rule: EventDecision["rule"];
       wouldCall: number;
-      /** Review calls that may come on top, depending on the judge's answers: an upper bound. */
-      confirmUpperBound: number;
       recall: RecallResult["stats"] | null;
       /** Reports whose own text was read (only those whose source allows it). */
       textsRead: number;
@@ -234,7 +232,6 @@ export async function shadowDecide(articleId: string, opts: { keepExisting?: boo
     verdict: decision.verdict,
     rule: decision.rule,
     wouldCall: decision.wouldCall,
-    confirmUpperBound: decision.confirmUpperBound,
     recall: judged?.recall.stats ?? null,
     textsRead: judged?.textsRead ?? 0,
   };

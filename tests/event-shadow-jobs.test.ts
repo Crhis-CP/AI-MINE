@@ -11,7 +11,7 @@ import { getBoss, QUEUES, stopBoss } from "@amp/backend/jobs/queue";
 import { type Reconciliation, reconcileLines } from "@amp/backend/operations/reconcile";
 import { dailyRetention } from "@amp/backend/operations/retention";
 import { shadowJobsWithFullWindow } from "../packages/backend/src/jobs/module-queues.ts";
-import { shadowAgreement, shadowHeadline } from "../packages/backend/src/pipeline/events/agreement.ts";
+import { shadowAgreement, shadowAgreements, shadowHeadline } from "../packages/backend/src/pipeline/events/agreement.ts";
 import { eventShadowEnabled, shadowRuleset } from "../packages/backend/src/pipeline/events/shadow.ts";
 import { scheduleEventShadow, shadowQueue } from "../packages/backend/src/pipeline/events/shadow-queue.ts";
 import { body, fact, hoursAgo, liveDecision, report, shadowSource, unique } from "./event-shadow-fixture.ts";
@@ -154,10 +154,11 @@ test("with no shadow row in a window the report reads nothing else and says so i
   const a = await shadowAgreement(hoursAgo(400), hoursAgo(399), { mode: "lexical" }, counting);
   assert.deepEqual([a.rows, a.judged, a.outside, a.calls.forecast, a.human.pairs, a.human.truncated, a.windowFull], [0, 0, 0, 0, 0, false, 0]);
   assert.equal(queries, 1, "one read of the shadow rows, and no audit log, membership or queue read after it");
-  // Without a mode it first reads which mode the worker last recorded (one query by the decided_at index).
+  // Without a mode it reads which modes the worker recorded in the window (one query by the decided_at index): none,
+  // so nothing else is read.
   queries = 0;
   await shadowAgreement(hoursAgo(400), hoursAgo(399), {}, counting);
-  assert.equal(queries, 2);
+  assert.equal(queries, 1);
 });
 
 test("agreement: same-fact agreement, the undecided share, the call forecast and both engines against people's corrections", async () => {
@@ -242,7 +243,7 @@ test("agreement: same-fact agreement, the undecided share, the call forecast and
       judged: 6,
       decided: 6,
       undecided: 0,
-      calls: { wouldCall: 1, confirmUpperBound: 0, outsideCalled: 1, forecast: 2, judgedUpperBound: 1, liveCalled: 4 },
+      calls: { wouldCall: 1, outsideCalled: 1, forecast: 2, liveCalled: 4 },
       sameFact: { rows: 5, agree: 1 },
     },
   );
@@ -269,52 +270,54 @@ test("agreement: same-fact agreement, the undecided share, the call forecast and
     agree: 1,
     undecided: 0,
     forecast: 2,
-    confirmUpperBound: 0,
     liveCalled: 4,
   });
 
-  // An undecided row: one relation call for certain, and at most one review per judged fact under the bar plus one.
+  // An undecided row: one relation call for certain; whatever follows depends on the model and is not added.
   const u1 = await r();
   await sql`INSERT INTO events.shadow_decisions(article_id,article_revision,ruleset,verdict,rule,candidates,would_call,live_verdict,live_called,decided_at)
     VALUES(${u1},1,${shadowRuleset("lexical")},'undecided','similar_unsure',
       ${sql.json([
         { ...cand(a2, shared), confirmIfSame: true },
-        { ...cand(b1, other), confirmIfSame: true },
-        { ...cand(m1, merged), confirmIfSame: false },
+        { ...cand(b1, other), confirmIfSame: false },
       ] as never)},
       1,'new-story',true,${hoursAgo(20)})`;
   const undecided = await shadowAgreement(hoursAgo(21), hoursAgo(19));
-  assert.deepEqual(undecided.calls, { wouldCall: 1, confirmUpperBound: 3, outsideCalled: 0, forecast: 1, judgedUpperBound: 4, liveCalled: 1 });
-  // The rows the worker recorded decide which mode is read, not this process's environment.
-  assert.equal(undecided.ruleset, shadowRuleset("lexical"));
+  assert.deepEqual(undecided.calls, { wouldCall: 1, outsideCalled: 0, forecast: 1, liveCalled: 1 });
+  assert.equal(undecided.ruleset, shadowRuleset("lexical"), "the window's rows decide the mode, not this process's environment");
   assert.equal((await shadowAgreement(hoursAgo(21), hoursAgo(19), { mode: "vector" })).rows, 0, "an explicit mode reads only its rows");
-  // A worker that switched to vectors writes vector rows: from its newest row on, the report reads that mode, whatever
-  // this process's environment says.
+  // The worker switched to vectors within the window: its newest row decides the default, and both modes are reported
+  // apart; the headline counts the other mode's rows without mixing them in.
   await sql`INSERT INTO events.shadow_decisions(article_id,article_revision,ruleset,verdict,rule,candidates,would_call,decided_at)
-    VALUES(${u1},1,${shadowRuleset("vector")},'new_event','no_candidate','[]'::jsonb,0,now()+interval '1 minute')`;
-  try {
-    assert.equal((await shadowAgreement(hoursAgo(21), hoursAgo(19))).ruleset, shadowRuleset("vector"));
-  } finally {
-    await sql`DELETE FROM events.shadow_decisions WHERE article_id=${u1} AND ruleset=${shadowRuleset("vector")}`;
-  }
+    VALUES(${u1},1,${shadowRuleset("vector")},'new_event','no_candidate','[]'::jsonb,0,${hoursAgo(19.5)})`;
+  assert.equal((await shadowAgreement(hoursAgo(21), hoursAgo(19))).ruleset, shadowRuleset("vector"));
+  assert.deepEqual(
+    (await shadowAgreements(hoursAgo(21), hoursAgo(19))).map((x) => [x.ruleset, x.rows]),
+    [
+      [shadowRuleset("vector"), 1],
+      [shadowRuleset("lexical"), 1],
+    ],
+  );
+  const mixed = await shadowHeadline(hoursAgo(21), hoursAgo(19));
+  assert.deepEqual([mixed.rows, mixed.otherModeRows], [1, 1]);
+  // A newer row outside the window does not decide the window's mode.
+  assert.equal((await shadowAgreement(hoursAgo(21), hoursAgo(19.75))).ruleset, shadowRuleset("lexical"));
   const day: Reconciliation = {
     day: "2026-11-18",
     sources: { enabled: 0, withNew: 0, silent: { failing: 0, waiting: 0, unstable: 0, overdue: 0, unknown: 0, quiet: 0 } },
     flow: { collected: 0, public: 0, selected: 0, scoredNotPublic: 0 },
     translation: { due: 0, missing: 0 },
     balance: [],
-    shadow: { rows: 130, judged: 120, sameFact: 40, agree: 38, undecided: 50, forecast: 70, confirmUpperBound: 90, liveCalled: 100 },
+    shadow: { rows: 130, judged: 120, sameFact: 40, agree: 38, undecided: 50, forecast: 70, liveCalled: 100 },
   };
   assert.equal(
     reconcileLines(day).at(-1),
-    "事件新规则试运行（读者看不到）：归组 130 篇，其中按规则试判 120 篇；判为同一件事 40 篇，与现在的归组一致 38 篇；仍待模型判断 50 篇（42%）；估计切换后这 130 篇至少调用模型 70 次，其中规则试判的稿件视模型回答至多再加 90 次复核；现网调用过模型的 100 篇",
+    "事件新规则试运行（读者看不到）：归组 130 篇，其中按规则试判 120 篇；判为同一件事 40 篇，与现在的归组一致 38 篇；仍待模型判断 50 篇（42%）；估计切换后这 130 篇至少调用模型 70 次；另有复核和事件合并的调用，取决于模型回答；现网调用过模型的 100 篇",
   );
-  const { confirmUpperBound: _, ...stored } = day.shadow!;
   assert.ok(
-    reconcileLines({ ...day, shadow: stored })
+    reconcileLines({ ...day, shadow: { ...day.shadow!, otherModeRows: 3 } })
       .at(-1)!
-      .endsWith("至少调用模型 70 次；现网调用过模型的 100 篇"),
-    "a day stored before the bound existed says nothing about it",
+      .endsWith("现网调用过模型的 100 篇；另有 3 篇按另一种比较方式记录，未计入"),
   );
   assert.ok(!reconcileLines({ ...day, shadow: null }).some((line) => line.startsWith("事件新规则")), "no line on a day the rules judged nothing");
 

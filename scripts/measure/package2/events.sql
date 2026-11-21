@@ -731,8 +731,8 @@ ORDER BY 2;
 -- Measures: groups of articles with one stored content hash (title, body and excerpt alike) from more than one source,
 --   discovered in the last 30 days, every copy with a body of 500 bytes or more (a hash over a short or empty body ties
 --   unrelated title-only items). Only copies the live engine placed in a fact count (a primary or report member: it
---   places only editorial reports that passed relevance, so roundups, discussion posts, archive history and rejected
---   items stay out), and a group needs two of them. Per group: how many distinct stories its placed copies sit in now.
+--   places only editorial reports that passed relevance, so roundups, discussion posts and rejected items stay out;
+--   archive history counts where it was attached to a fact), and a group needs two of them. Per group: how many distinct stories its placed copies sit in now.
 --   Stories merged by an editor or the engine count once: a merge moves the facts (events/merge.ts). Exact copies only,
 --   so reworded duplicates, which character-pair recall can miss, are not counted: split_across_stories is a lower bound.
 -- Decides: whether duplicates go ungrouped at a level readers notice, before the embeddings question (option C of
