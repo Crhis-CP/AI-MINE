@@ -85,7 +85,11 @@ const IconPlay = () => (
   </svg>
 );
 
-/** The poster frame: the film's title over a line drawn from a real price, and the figures the film will show. */
+/**
+ * The poster frame: the film's title over a line drawn from a real price, and the figures the film will show. Wide
+ * screens keep a film's proportions; on a phone the frame has a fixed height that holds the English title in three lines
+ * above the figures, so nothing below moves while the web font arrives.
+ */
 function Poster({ script, data, still, onPlay }: { script: Script; data: LiveData; still: boolean; onPlay: () => void }) {
   const tr = useTr();
   const say = usePriceWords();
@@ -107,17 +111,17 @@ function Poster({ script, data, still, onPlay }: { script: Script; data: LiveDat
       type="button"
       onClick={onPlay}
       aria-label={still ? tr("查看分镜：{title}", { title: tr(script.title) }) : tr("播放演示：{title}（约 {s} 秒）", { title: tr(script.title), s: seconds })}
-      className="flow-screen film-poster group/poster relative block aspect-[4/3] w-full overflow-hidden rounded-control border text-left sm:aspect-[16/7]"
+      className="flow-screen film-poster group/poster relative flex h-72 w-full overflow-hidden rounded-control border text-left sm:h-auto sm:aspect-[16/7]"
     >
       {line && (
         <svg viewBox="0 -10 400 140" preserveAspectRatio="none" className="absolute inset-x-0 bottom-0 h-2/3 w-full" aria-hidden="true">
           <path d={line} className="film-line" vectorEffect="non-scaling-stroke" />
         </svg>
       )}
-      <span className="relative flex h-full flex-col justify-between p-5 sm:p-7">
+      <span className="relative flex w-full flex-col justify-between gap-6 p-5 sm:p-7">
         <span>
           <span className="film-kicker block text-[12px] font-semibold tracking-wide">{still ? tr("分镜") : tr("演示 · 约 {s} 秒", { s: seconds })}</span>
-          <span className="mt-1.5 block max-w-[20em] text-[20px] font-black leading-[1.3] sm:text-[26px]">{tr(script.title)}</span>
+          <span className="mt-1.5 line-clamp-3 max-w-[20em] text-[20px] font-black leading-[1.3] sm:text-[26px]">{tr(script.title)}</span>
         </span>
         <span className="flex items-end justify-between gap-4">
           <span className="flex flex-wrap gap-1.5">
