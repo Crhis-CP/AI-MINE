@@ -132,6 +132,34 @@
   animation: flow-blink 1.4s steps(2, jump-none) infinite;
 }
 
+/* The poster frame of a changelog film (player/Film.tsx), in the pipeline screen's colours. */
+.film-poster {
+  background: var(--fs-bg);
+  border-color: var(--fs-border);
+  box-shadow: var(--fs-shadow);
+  color: var(--fs-ink);
+}
+.film-kicker {
+  color: var(--fs-gold);
+}
+/* A phone held sideways: a low poster without its figures (the storyboard below has them), so the play button stays
+   clear of the bottom navigation. */
+@media (max-height: 500px) and (max-width: 1279px) {
+  .film-poster {
+    height: 15rem;
+  }
+  .film-poster .film-title {
+    font-size: 20px;
+  }
+  .film-chips {
+    display: none;
+  }
+}
+.film-chip {
+  border-color: var(--fs-chip-line);
+  background: var(--fs-chip);
+  color: var(--fs-ink-soft);
+}
 /* A light that keeps traveling the notice line after the entrance has finished. */
 @keyframes notice-sheen {
   from {
