@@ -180,9 +180,11 @@ test("in-flight embedding cannot persist across pause and reuses the same record
     return { data: [{ index: 0, embedding: [0.5, 0.5] }], usage: { prompt_tokens: 1, completion_tokens: 0, total_tokens: 1 } };
   });
   const oldUrl = process.env.DASHSCOPE_BASE_URL,
-    oldKey = process.env.DASHSCOPE_API_KEY;
+    oldKey = process.env.DASHSCOPE_API_KEY,
+    oldOptIn = process.env.EMBEDDINGS_ENABLED;
   process.env.DASHSCOPE_BASE_URL = provider.url;
   process.env.DASHSCOPE_API_KEY = "synthetic-control-key";
+  process.env.EMBEDDINGS_ENABLED = "true";
   try {
     const result = ensureEmbeddings("article", [{ id: articleId, text: "Synthetic mining fact" }]);
     const rejected = assert.rejects(result, RuntimeControlStale);
@@ -199,6 +201,8 @@ test("in-flight embedding cannot persist across pause and reuses the same record
     else process.env.DASHSCOPE_BASE_URL = oldUrl;
     if (oldKey === undefined) delete process.env.DASHSCOPE_API_KEY;
     else process.env.DASHSCOPE_API_KEY = oldKey;
+    if (oldOptIn === undefined) delete process.env.EMBEDDINGS_ENABLED;
+    else process.env.EMBEDDINGS_ENABLED = oldOptIn;
     await provider.close();
   }
 });

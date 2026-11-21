@@ -18,6 +18,8 @@ const provider = await stub(async (_hit, request) => {
 });
 process.env.DASHSCOPE_BASE_URL = provider.url;
 process.env.DASHSCOPE_API_KEY = "synthetic-embedding-key";
+// Embeddings are an explicit opt-in (providers/embeddings.ts embeddingsAvailable); these tests are about the opted-in path.
+process.env.EMBEDDINGS_ENABLED = "true";
 await installUsageFixtureForEmbedding(EMBEDDING_MODEL);
 after(async () => {
   await provider.close();
@@ -66,5 +68,18 @@ test("permission revoked while an embedding is in flight prevents storing its re
     assert.equal((await sql`SELECT 1 FROM embeddings WHERE ref_id=${item.id}`).length, 0);
   } finally {
     beforeResponse = null;
+  }
+});
+
+test("without the opt-in nothing is embedded, whoever calls: only stored vectors come back", async () => {
+  const item = await material(true);
+  const before = provider.hits();
+  delete process.env.EMBEDDINGS_ENABLED;
+  try {
+    const result = await ensureEmbeddings("article", [item]);
+    assert.equal(result.has(item.id), false);
+    assert.equal(provider.hits(), before, "no paid request with a key but no EMBEDDINGS_ENABLED=true");
+  } finally {
+    process.env.EMBEDDINGS_ENABLED = "true";
   }
 });

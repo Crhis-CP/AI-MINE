@@ -3,8 +3,9 @@ import { runtimeControlSnapshot, type RuntimeControlSnapshot } from "../operatio
 // Text embeddings through receipts, used only for the event grouping's candidate recall. Any
 // OpenAI-compatible /embeddings endpoint (EMBEDDING_BASE_URL, EMBEDDING_API_KEY, EMBEDDING_MODEL);
 // with a DashScope key and nothing else set, Aliyun text-embedding-v4 at 1024 dimensions. Without
-// either, recall falls back to the other signal (the same address).
-import { config, credential } from "../config.ts";
+// either, recall falls back to the other signal (the same address). Used only while EMBEDDINGS_ENABLED=true
+// (embeddingsAvailable); a key alone does not switch it on.
+import { config, credential, embeddingsEnabled } from "../config.ts";
 import { sql } from "../db.ts";
 import { sha256 } from "../lib/ids.ts";
 import { paidRequest, ProviderRejectedError } from "./receipts.ts";
@@ -33,13 +34,14 @@ function cacheFact(id: string, textHash: string, vector: number[]) {
   if (factVectors.size > FACT_CACHE_LIMIT) factVectors.delete(factVectors.keys().next().value!);
 }
 
-/** Embeddings are paid model calls: MODEL_CALLS_ENABLED=false switches them off like every other call. */
+/**
+ * Embeddings are paid model calls of a service the Owner must approve (DEC-29), so they are an explicit opt-in:
+ * EMBEDDINGS_ENABLED=true, a key, and MODEL_CALLS_ENABLED not false. A key alone never turns them on, because the
+ * qwen model presets read the same DASHSCOPE_API_KEY (TASK-0367). Off, every grouping similarity is the lexical overlap
+ * (events/relate.ts lexicalSimilarity); production has stored no vector so far (measurement M2b).
+ */
 export function embeddingsAvailable(): boolean {
-  return (
-    config.modelCallsEnabled &&
-    !!(credential("models", "EMBEDDING_API_KEY") ?? credential("models", "DASHSCOPE_API_KEY")) &&
-    process.env.EMBEDDINGS_ENABLED !== "false"
-  );
+  return embeddingsEnabled() && config.modelCallsEnabled && !!(credential("models", "EMBEDDING_API_KEY") ?? credential("models", "DASHSCOPE_API_KEY"));
 }
 
 type EmbeddingItem = { id: string; text: string };
@@ -67,6 +69,8 @@ async function permittedItems(kind: string, items: EmbeddingItem[]) {
 
 async function embedBatch(texts: string[], subject: string, runtimeControl: RuntimeControlSnapshot, input: FallbackPermitPort): Promise<number[][]> {
   if (!config.modelCallsEnabled) throw new Error("Model calls are disabled (MODEL_CALLS_ENABLED=false)");
+  // Defence in depth: callers check embeddingsAvailable, but no path may reach the paid request without the opt-in.
+  if (!embeddingsEnabled()) throw new Error("Embeddings are off (EMBEDDINGS_ENABLED is not true)");
   const base = own
     ? (credential("models", "EMBEDDING_BASE_URL") ?? "https://api.openai.com/v1")
     : (credential("models", "DASHSCOPE_BASE_URL") ?? "https://dashscope.aliyuncs.com/compatible-mode/v1");
@@ -116,7 +120,7 @@ async function embedBatch(texts: string[], subject: string, runtimeControl: Runt
   }
 }
 
-/** Returns stored embeddings, computing and storing the missing ones. */
+/** Returns stored embeddings, computing and storing the missing ones; without the opt-in (embeddingsAvailable) only the stored ones. */
 export async function ensureEmbeddings(kind: "fact" | "article" | "story", items: Array<{ id: string; text: string }>): Promise<Map<string, number[]>> {
   const out = new Map<string, number[]>();
   if (items.length === 0) return out;
@@ -149,7 +153,9 @@ export async function ensureEmbeddings(kind: "fact" | "article" | "story", items
     }
     return true;
   });
-  const runtimeControl = missing.length ? await runtimeControlSnapshot("news", ["processing"]) : null;
+  // Without the opt-in nothing is embedded (no paid request), whoever calls.
+  if (!missing.length || !embeddingsAvailable()) return out;
+  const runtimeControl = await runtimeControlSnapshot("news", ["processing"]);
   for (let i = 0; i < missing.length; i += 10) {
     const batch = await permittedItems(kind, missing.slice(i, i + 10));
     if (!batch.length) continue;
@@ -161,12 +167,12 @@ export async function ensureEmbeddings(kind: "fact" | "article" | "story", items
       articles: batch.map(({ id, revision }) => ({ id, revision })),
     });
     if (!prepared) continue;
-    const vectors = await embedBatch(texts, `${kind}:${batch[0]!.id}`, runtimeControl!, prepared({ system: "", user: texts }));
+    const vectors = await embedBatch(texts, `${kind}:${batch[0]!.id}`, runtimeControl, prepared({ system: "", user: texts }));
     await storeEmbeddingBatch(
       kind,
       EMBEDDING_MODEL,
       batch.map((item, index) => ({ id: item.id, textHash: hashes.get(item.id)!, vector: vectors[index]! })),
-      runtimeControl!,
+      runtimeControl,
       batch.map(({ id, revision }) => ({ id, revision })),
     );
     for (const [index, item] of batch.entries()) out.set(item.id, vectors[index]!);

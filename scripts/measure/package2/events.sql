@@ -106,11 +106,35 @@ FROM embeddings e
 GROUP BY 2, 3
 ORDER BY 5 DESC, 2, 3;
 
+-- [M2c] Paid embedding requests ever made, by service, model and status.
+-- Measures: every receipt of an embedding request (providers/embeddings.ts: purpose 'embedding', service 'embedding' with
+--   its own key or 'dashscope'), all time; read through the service index, so only those two services' receipts are
+--   looked at.
+-- Decides: whether live grouping ever ran with vectors (expected: no rows, as M2b), before anyone takes switching
+--   embeddings on (EMBEDDINGS_ENABLED=true, an Owner decision under DEC-29) to the Owner.
+-- Columns: measure, service, model, status, receipts, first_at, last_at
+SELECT 'M2c' AS measure,
+  r.service,
+  r.model,
+  r.status,
+  count(*)::int AS receipts,
+  min(r.created_at) AS first_at,
+  max(r.created_at) AS last_at
+FROM receipts r
+WHERE r.service IN ('embedding', 'dashscope') AND r.purpose = 'embedding'
+GROUP BY 2, 3, 4
+ORDER BY 2, 3, 4;
+
 -- [M3a] Recall similarity of judged candidates by the judge's relation, last 60 days.
 -- Measures: the similarity score recorded with every candidate the model judged, banded, against the relation the
 --   model returned (SAME_OCCURRENCE, SAME_STORY, UNRELATED, ROUNDUP; none when the candidate was not judged). A same-URL
---   candidate is recorded with score 1.
--- Decides: the cosine bars of the event rules: 0.92 (tie without asking), 0.85 (confirm a merge), 0.6 (recall floor).
+--   candidate is recorded with score 1. While embeddings are off (production so far: M2b returned no rows) the
+--   score is the character-pair overlap (events/relate.ts lexicalSimilarity: shared character bigrams over the smaller
+--   set, so a short text inside a long one scores 1), not a cosine; the bands keep the cosine bars' edges only so the
+--   two kinds can be set side by side.
+-- Decides: how the live engine's bars act on the character-pair overlap it actually compares: 0.85 (confirm a merge,
+--   CONFIRM_BELOW_COSINE applied to the overlap) and 0.92 (skip the review), above the lexical recall floor 0.25. It
+--   says nothing about cosine bars until vectors exist.
 -- Columns: measure, relation, score_band, candidates, mean_confidence
 SELECT 'M3a' AS measure,
   coalesce(c.value->>'relation', 'none') AS relation,
@@ -701,3 +725,44 @@ SELECT 'M12' AS measure,
 FROM sizes
 GROUP BY 2
 ORDER BY 2;
+
+-- [M13] The same article from different sources left in different stories, last 30 days (a lower bound on duplicates
+--   live grouping did not group).
+-- Measures: groups of articles with one stored content hash (title, body and excerpt alike) from more than one source,
+--   discovered in the last 30 days, every copy with a body of 500 bytes or more (a hash over a short or empty body ties
+--   unrelated title-only items). Only copies the live engine placed in a fact count (a primary or report member: it
+--   places only editorial reports that passed relevance, so roundups, discussion posts and rejected items stay out;
+--   archive history counts where it was attached to a fact), and a group needs two of them. Per group: how many distinct stories its placed copies sit in now.
+--   Stories merged by an editor or the engine count once: a merge moves the facts (events/merge.ts). Exact copies only,
+--   so reworded duplicates, which character-pair recall can miss, are not counted: split_across_stories is a lower bound.
+-- Decides: whether duplicates go ungrouped at a level readers notice, before the embeddings question (option C of
+--   the recall review) goes to the Owner.
+-- Columns: measure, groups, articles, split_across_stories, one_story
+WITH twins AS (
+  SELECT content_hash
+  FROM articles
+  WHERE content_hash IS NOT NULL AND discovered_at > now() - interval '30 days'
+  GROUP BY content_hash
+  HAVING count(DISTINCT source_id) > 1 AND min(octet_length(coalesce(body_text, ''))) >= 500
+), placed AS (
+  SELECT a.content_hash, a.source_id, m.story_id
+  FROM articles a
+  JOIN twins t ON t.content_hash = a.content_hash
+  JOIN LATERAL (
+    SELECT min(f.story_id) AS story_id
+    FROM fact_articles fa JOIN facts f ON f.id = fa.fact_id
+    WHERE fa.article_id = a.id AND fa.role IN ('primary', 'report')
+  ) m ON m.story_id IS NOT NULL
+  WHERE a.discovered_at > now() - interval '30 days'
+), groups AS (
+  SELECT content_hash, count(*) AS n, count(DISTINCT story_id) AS stories
+  FROM placed
+  GROUP BY content_hash
+  HAVING count(*) > 1 AND count(DISTINCT source_id) > 1
+)
+SELECT 'M13' AS measure,
+  count(*)::int AS groups,
+  coalesce(sum(n), 0)::int AS articles,
+  count(*) FILTER (WHERE stories > 1)::int AS split_across_stories,
+  count(*) FILTER (WHERE stories = 1)::int AS one_story
+FROM groups;

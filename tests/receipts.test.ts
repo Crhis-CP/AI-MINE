@@ -259,11 +259,16 @@ test("with the valve off nothing is sent", async () => {
     const before = provider.hits();
     await assert.rejects(ask(`valve-${tag()}`), /disabled/);
     assert.equal(provider.hits(), before);
+    // Opted in and with a key, the valve still wins: embeddings are paid model calls like any other.
     process.env.DASHSCOPE_API_KEY = "test-key";
+    process.env.EMBEDDINGS_ENABLED = "true";
     assert.equal(embeddingsAvailable(), false);
+    config.modelCallsEnabled = true;
+    assert.equal(embeddingsAvailable(), true, "the same settings with the valve open");
   } finally {
     config.modelCallsEnabled = true;
     delete process.env.DASHSCOPE_API_KEY;
+    delete process.env.EMBEDDINGS_ENABLED;
   }
 });
 

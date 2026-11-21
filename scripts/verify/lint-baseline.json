@@ -163,7 +163,7 @@
     "lint/style/noProcessEnv": 1
   },
   "packages/backend/src/providers/embeddings.ts": {
-    "lint/style/noProcessEnv": 3
+    "lint/style/noProcessEnv": 2
   },
   "packages/backend/src/providers/llm.ts": {
     "lint/style/noProcessEnv": 4

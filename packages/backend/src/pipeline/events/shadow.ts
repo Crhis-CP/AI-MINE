@@ -1,5 +1,6 @@
 // The event rules in shadow (package 2, step 2.4): after the live engine has grouped a report, decide it again by the
-// rules alone (rules.ts decideEvent: no model call, no new vector) and store that answer next to a snapshot of what the
+// rules alone (rules.ts decideEvent: no model call, no new vector), recalling in the mode the live engine runs in
+// (recall.ts recallMode: lexical while embeddings are off, the default), and store that answer next to a snapshot of what the
 // live engine did (events.shadow_decisions). Nothing here writes a membership, a publication, an analysis or a receipt,
 // so nothing a reader sees can change; the rows measure agreement and the model calls a switch would save.
 // A report's own text (for its fingerprint and its checked day) is read only after its source is found to allow that
@@ -14,13 +15,18 @@ import { newsRelationJurisdictions } from "../../publication/items.ts";
 import { sourceParticipants } from "../../sources/participants.ts";
 import { bodyFingerprint } from "./fingerprint.ts";
 import { locallyReadable } from "./local-text.ts";
-import { RECALL_RULESET, recallCandidates, type RecallResult, slicer } from "./recall.ts";
+import { recallCandidates, recallMode, type RecallMode, type RecallResult, recallRuleset, slicer } from "./recall.ts";
 import { decideEvent, type EventCandidate, type EventDecision, type EventQuery, EVENT_RULESET } from "./rules.ts";
 import { memberClaim } from "./timing-rules.ts";
 import { readFactTiming, TEXT_CHARS } from "./timing.ts";
 
-/** What a stored row was decided under: the rules, the recall bounds and the text read; rows of other settings are never pooled. */
-export const SHADOW_RULESET = `${EVENT_RULESET}|${RECALL_RULESET}|text${TEXT_CHARS}`;
+/**
+ * What a stored row was decided under: the rules, the recall mode and bounds and the text read; rows of other settings
+ * are never pooled. Without an argument, the mode the live engine runs in now (what the agreement report reads).
+ */
+export function shadowRuleset(mode: RecallMode = recallMode()): string {
+  return `${EVENT_RULESET}|${recallRuleset(mode)}|text${TEXT_CHARS}`;
+}
 /** Shadow rows are kept this long (operations/retention.ts); the switch decision needs two weeks of them. */
 export const SHADOW_RETENTION_DAYS = 45;
 const DAY = 86_400_000;
@@ -146,8 +152,11 @@ export async function shadowDecide(articleId: string, opts: { keepExisting?: boo
   const [material] = await newsShadowMaterials([articleId], 0, db);
   if (!material) return { state: "missing" };
   const revision = material.revision;
+  // One mode for the whole decision: the row's ruleset names the mode its recall ran in.
+  const mode = recallMode();
+  const ruleset = shadowRuleset(mode);
   if (opts.keepExisting) {
-    const [row] = await db`SELECT 1 FROM events.shadow_decisions WHERE article_id=${articleId} AND article_revision=${revision} AND ruleset=${SHADOW_RULESET}`;
+    const [row] = await db`SELECT 1 FROM events.shadow_decisions WHERE article_id=${articleId} AND article_revision=${revision} AND ruleset=${ruleset}`;
     if (row) return { state: "kept" };
   }
   const [live] = await db<{ verdict: string; fact_id: number | null; story_id: number | null; called: boolean; candidates: unknown; created_at: Date }[]>`
@@ -176,7 +185,7 @@ export async function shadowDecide(articleId: string, opts: { keepExisting?: boo
     frame: !!frame,
     manual: !!manual,
     historical: isHistorical(material),
-    hasVector: false,
+    recallComplete: false,
     readingBackground: false,
   };
 
@@ -196,6 +205,7 @@ export async function shadowDecide(articleId: string, opts: { keepExisting?: boo
               composite: scope === "composite",
               // The pool as the live engine saw it; a run with no live decision yet sees the graph as it is now.
               liveAt: live?.created_at ?? new Date(),
+              mode,
             },
             db,
           );
@@ -203,14 +213,14 @@ export async function shadowDecide(articleId: string, opts: { keepExisting?: boo
           return {
             recall,
             textsRead: found.textsRead + mine.size,
-            decision: decideEvent({ ...query, ...own, hasVector: recall.hasVector, readingBackground: recall.readingBackground }, found.candidates),
+            decision: decideEvent({ ...query, ...own, recallComplete: recall.recallComplete, readingBackground: recall.readingBackground }, found.candidates),
           };
         })();
   const decision = judged ? judged.decision : gate;
 
   await db`INSERT INTO events.shadow_decisions(lane,article_id,article_revision,ruleset,verdict,rule,target_fact_id,target_story_id,similarity,
       candidates,would_call,live_verdict,live_fact_id,live_story_id,live_called,live_candidates)
-    VALUES('news',${articleId},${revision},${SHADOW_RULESET},${decision.verdict},${decision.rule},${decision.targetFactId},${decision.targetStoryId},
+    VALUES('news',${articleId},${revision},${ruleset},${decision.verdict},${decision.rule},${decision.targetFactId},${decision.targetStoryId},
       ${decision.similarity === null ? null : Number(decision.similarity)},${db.json(decision.candidates as never)},${decision.wouldCall},${live?.verdict ?? null},
       ${live?.fact_id ?? null},${live?.story_id ?? null},${live?.called ?? null},${live?.candidates == null ? null : db.json(live.candidates as never)})
     ON CONFLICT(article_id,article_revision,ruleset) DO UPDATE SET verdict=EXCLUDED.verdict,rule=EXCLUDED.rule,target_fact_id=EXCLUDED.target_fact_id,

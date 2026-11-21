@@ -120,6 +120,14 @@ selectionRuleset();
  */
 export const englishCopyEnabled = () => env.EN_COPY_ENABLED === "true";
 
+/**
+ * Paid embeddings for the event grouping's recall (EMBEDDINGS_ENABLED, DEC-29: off by default, a new paid service needs
+ * the Owner). Off unless the exact literal true, so a key added for something else (DASHSCOPE_API_KEY also serves the
+ * qwen model presets) never switches grouping to paid vector recall by itself (TASK-0367). Read at call time, from the
+ * process environment only: a credentials file (models.env) does not set it.
+ */
+export const embeddingsEnabled = () => env.EMBEDDINGS_ENABLED === "true";
+
 /** Read dynamically so a paused lane is observed before the next queued source starts. */
 export const sourceCollectionEnabled = (lane: "news" | "policy") => env.COLLECT_ENABLED !== "false" && env[`COLLECT_${lane.toUpperCase()}_ENABLED`] !== "false";
 export function sourceCollectionConcurrency(lane: "news" | "policy"): number {

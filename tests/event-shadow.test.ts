@@ -1,5 +1,7 @@
 // The event rules in shadow (packages/backend/src/pipeline/events): after the live engine grouped a report, the rules
-// decide it again from the live graph and stored vectors only, and the answer is stored next to the live one. Asserts
+// decide it again from the live graph (and stored vectors, only when embeddings are switched on), and the answer is
+// stored next to the live one. Without embeddings (as production runs) recall compares the whole pool by the live
+// engine's own character-pair overlap; tests/event-shadow-lexical.test.ts holds the forecast to live grouping's calls. Asserts
 // the rows, the call forecast, that no receipt, publication or analysis changes, how recall finds candidates (address,
 // hash, fingerprint, vectors, documents, key facts, the selected background) within its bounds and like the live engine
 // (facts, not reports; nothing withdrawn or a roundup), and that a report's text is read only where its source allows.
@@ -9,11 +11,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, test } from "node:test";
 import { closeDb, sql } from "@amp/backend/db";
-import { lexicalSimilarity } from "@amp/backend/events/relate";
+import { lexicalScorer, lexicalSimilarity, LEXICAL_RECALL_MIN } from "@amp/backend/events/relate";
 import * as live from "@amp/backend/events/group";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import * as recall from "../packages/backend/src/pipeline/events/recall.ts";
-import { SHADOW_RULESET, shadowDecide } from "../packages/backend/src/pipeline/events/shadow.ts";
+import { CONFIRM_BELOW_LEXICAL } from "../packages/backend/src/pipeline/events/rules.ts";
+import { shadowDecide, shadowRuleset } from "../packages/backend/src/pipeline/events/shadow.ts";
 import {
   bareMember,
   body,
@@ -48,8 +51,26 @@ interface ShadowRow {
   live_fact_id: number | null;
   live_called: boolean | null;
 }
+/** The row under the ruleset of the mode the shadow runs in now (lexical unless withVectors). */
 const shadowRow = async (articleId: string) =>
-  (await sql<ShadowRow[]>`SELECT * FROM events.shadow_decisions WHERE article_id=${articleId} AND ruleset=${SHADOW_RULESET}`)[0];
+  (await sql<ShadowRow[]>`SELECT * FROM events.shadow_decisions WHERE article_id=${articleId} AND ruleset=${shadowRuleset()}`)[0];
+/** Embeddings switched on as an operator would (EMBEDDINGS_ENABLED=true and a key); the shadow then reads stored vectors. */
+async function withVectors<T>(run: () => Promise<T>): Promise<T> {
+  const saved = [process.env.EMBEDDINGS_ENABLED, process.env.DASHSCOPE_API_KEY];
+  process.env.EMBEDDINGS_ENABLED = "true";
+  process.env.DASHSCOPE_API_KEY = "synthetic-only";
+  try {
+    assert.equal(recall.recallMode(), "vector");
+    return await run();
+  } finally {
+    for (const [key, value] of [
+      ["EMBEDDINGS_ENABLED", saved[0]],
+      ["DASHSCOPE_API_KEY", saved[1]],
+    ] as const)
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+  }
+}
 /** Everything a reader or the ledger could see, and the paid-call records. */
 const visible = async () => ({
   publications: JSON.stringify(await sql`SELECT * FROM publications ORDER BY article_id`),
@@ -108,6 +129,17 @@ test("the shadow's recall values are the live engine's", () => {
 });
 
 test("the prefilter keeps the best lexical scores, the scorer is the live overlap, and the vector cache stays within its bytes", async () => {
+  // One function scores both engines: recall.ts uses events/relate.ts lexicalScorer and keeps no bigram code of its own.
+  const source = readFileSync(new URL("../packages/backend/src/pipeline/events/recall.ts", import.meta.url), "utf8");
+  assert.ok(
+    /import \{[^}]*\blexicalScorer\b[^}]*\} from "\.\.\/\.\.\/events\/relate\.ts"/.test(source) && !/grams|slice\(i, i \+ 2\)/.test(source),
+    "no copied algorithm",
+  );
+  // The lexical confirm bar is the bar the live engine applies to the overlap (events/group.ts compares every pick's
+  // score, the overlap when embeddings are off, with CONFIRM_BELOW_COSINE).
+  const group = readFileSync(new URL("../packages/backend/src/events/group.ts", import.meta.url), "utf8");
+  assert.ok(group.includes(`const CONFIRM_BELOW_COSINE = ${CONFIRM_BELOW_LEXICAL};`) && group.includes("if (pick.score >= CONFIRM_BELOW_COSINE) {"));
+  assert.ok(group.includes("if (s >= LEXICAL_RECALL_MIN) consider(r, s);") && LEXICAL_RECALL_MIN === 0.25, "the live lexical floor");
   for (const [a, b] of [
     ["紫金矿业卡莫阿铜矿", "卡莫阿铜矿三期试车"],
     ["Rio Tinto approves", "rio tinto  approves US$144m"],
@@ -115,7 +147,7 @@ test("the prefilter keeps the best lexical scores, the scorer is the live overla
     ["", "铜矿"],
     ["铜", ""],
   ])
-    assert.equal(recall.lexicalScorer(a)(b), lexicalSimilarity(a, b), `${a} / ${b}`);
+    assert.equal(lexicalScorer(a)(b), lexicalSimilarity(a, b), `${a} / ${b}`);
   const scored = [
     { id: "b", score: 0.5 },
     { id: "a", score: 0.5 },
@@ -227,34 +259,65 @@ test("a report whose source no longer allows reading its text locally is not rea
   assert.ok(none.state === "decided" && none.textsRead === 0, "neither source allows it: no text is read at all");
 });
 
-test("a report like nothing else is a new event only when its stored vector shows recall had its full reach", async () => {
+test("a report like nothing else is a new event without embeddings, as live; with embeddings only when its stored vector shows recall had its full reach", async () => {
   const lone = await report({ source: await shadowSource(), titleZh: unique(), summaryZh: unique(), body: body(), publishedAt: hoursAgo(1) });
   const own = await fact("合成孤立报道", [lone]);
   await liveDecision(lone, "new-story", own);
-  await shadowDecide(lone);
+  assert.equal(recall.recallMode(), "lexical", "a test database has no embeddings switched on, like production");
+  const before = await visible();
+  const lexical = await shadowDecide(lone);
   let row = (await shadowRow(lone))!;
-  assert.deepEqual([row.verdict, row.rule, row.would_call], ["undecided", "vector_missing", 1]);
-  // Three dimensions: no other test stores vectors of this size, so nothing else is comparable with it.
-  await vector(lone, "query", [0.2, 0.9, 0.1]);
-  await shadowDecide(lone);
-  row = (await shadowRow(lone))!;
-  assert.deepEqual([row.verdict, row.rule, row.would_call, row.candidates.length], ["new_event", "no_candidate", 0, 0], "the second run replaces the first");
+  assert.deepEqual([row.verdict, row.rule, row.would_call, row.candidates.length], ["new_event", "no_candidate", 0, 0], "lexical recall is complete");
+  assert.ok(
+    lexical.state === "decided" && lexical.recall!.vectorsRead === 0 && lexical.recall!.scored >= lexical.recall!.pool - 1,
+    "the whole pool, no vector",
+  );
+  assert.deepEqual(await visible(), before, "nothing a reader sees, no receipt, no vector");
+  await withVectors(async () => {
+    await shadowDecide(lone);
+    row = (await shadowRow(lone))!;
+    assert.deepEqual(
+      [row.verdict, row.rule, row.would_call],
+      ["undecided", "vector_missing", 0],
+      "vector mode without the report's vector: no new event, and nothing found means no certain call",
+    );
+    // Three dimensions: no other test stores vectors of this size, so nothing else is comparable with it.
+    await vector(lone, "query", [0.2, 0.9, 0.1]);
+    await shadowDecide(lone);
+    row = (await shadowRow(lone))!;
+    assert.deepEqual([row.verdict, row.rule, row.would_call, row.candidates.length], ["new_event", "no_candidate", 0, 0], "the second run replaces the first");
+  });
+  const rulesets = await sql<{ ruleset: string }[]>`SELECT ruleset FROM events.shadow_decisions WHERE article_id=${lone} ORDER BY ruleset`;
+  assert.deepEqual(
+    rulesets.map((r) => r.ruleset),
+    [shadowRuleset("lexical"), shadowRuleset("vector")].sort(),
+    "the two modes write rows under different rulesets, never pooled",
+  );
+  assert.ok(shadowRuleset("lexical").includes("|recall-v4:lexical/") && shadowRuleset("vector").includes("|recall-v4:vector/"));
 });
 
 test("two near-identical reports with the same title on the same day are certain duplicates by their stored vectors", async () => {
   const title = `${unique(6)}完成铜矿项目收购交易`;
-  const first = await report({ source: await shadowSource(), titleZh: title, body: "短讯。", publishedAt: yesterdayAt(2) });
+  const summaryZh = `${title}。双方当日完成交割。`;
+  const first = await report({ source: await shadowSource(), titleZh: title, summaryZh, body: "短讯。", publishedAt: yesterdayAt(2) });
   const earlier = await fact(title, [first], yesterdayAt(2));
   await liveDecision(first, "new-story", earlier, yesterdayAt(2));
-  const second = await report({ source: await shadowSource(), titleZh: title, body: "另一条短讯。", publishedAt: yesterdayAt(3) });
+  const second = await report({ source: await shadowSource(), titleZh: title, summaryZh, body: "另一条短讯。", publishedAt: yesterdayAt(3) });
   await join(earlier.factId, second);
   await liveDecision(second, "same-fact", earlier);
   await vector(first, "candidate", [1, 0, 0, 0, 0]);
   await vector(second, "query", [0.99, 0.05, 0, 0, 0]);
+  // Without embeddings the stored vectors are not read: the same pair, alike only by its characters, goes to the judge.
   await shadowDecide(second);
-  const row = (await shadowRow(second))!;
-  assert.deepEqual([row.verdict, row.rule, row.target_fact_id], ["same_fact", "certain_duplicate", earlier.factId]);
-  assert.ok(row.similarity! > 0.99 && row.candidates[0]!.cosine! > 0.99, "the cosine of the stored vectors is the evidence");
+  const lexical = (await shadowRow(second))!;
+  assert.deepEqual([lexical.verdict, lexical.rule, lexical.would_call], ["undecided", "similar_unsure", 1]);
+  assert.ok(lexical.candidates[0]!.cosine === null && lexical.similarity! >= CONFIRM_BELOW_LEXICAL, "a close overlap: no confirm call, no certain duplicate");
+  await withVectors(async () => {
+    await shadowDecide(second);
+    const row = (await shadowRow(second))!;
+    assert.deepEqual([row.verdict, row.rule, row.target_fact_id], ["same_fact", "certain_duplicate", earlier.factId]);
+    assert.ok(row.similarity! > 0.99 && row.candidates[0]!.cosine! > 0.99, "the cosine of the stored vectors is the evidence");
+  });
 });
 
 test("a person's placement, a discussion post and a roundup are outside the rules and recall nothing", async () => {
@@ -394,7 +457,7 @@ test("the same company and amount in the last 72 hours is a candidate however di
     publishedAt: hoursAgo(1),
   });
   await liveDecision(query, "new-story", await fact("合成新报道", [query]));
-  assert.ok(recall.lexicalScorer(await queryText(query))(await queryText(keyed)) < 0.25, "too little shared wording for the ordinary recall");
+  assert.ok(lexicalScorer(await queryText(query))(await queryText(keyed)) < LEXICAL_RECALL_MIN, "too little shared wording for the ordinary recall");
   await shadowDecide(query);
   assert.ok((await shadowRow(query))!.candidates.some((c) => c.articleId === keyed && c.factId === theirs.factId));
 });
@@ -418,7 +481,7 @@ test("a close visible pick outside the judged facts still costs the value call, 
   );
 });
 
-test("recall stays within its bounds: the window, and one budget of vectors per article", async () => {
+test("recall stays within its bounds: the window, and with embeddings one budget of vectors per article; without them the whole pool", async () => {
   const words = unique(8);
   const source = await shadowSource();
   const members: string[] = [];
@@ -430,7 +493,7 @@ test("recall stays within its bounds: the window, and one budget of vectors per 
   }
   const query = await report({ source: await shadowSource(), titleZh: `${words}钴矿收购完成`, body: body(), publishedAt: hoursAgo(1) });
   await vector(query, "query", [1, 0, 0, 0, 0, 0]);
-  const input = { articleId: query, text: await queryText(query), documentKeys: [], composite: false, liveAt: new Date() };
+  const input = { articleId: query, text: await queryText(query), documentKeys: [], composite: false, liveAt: new Date(), mode: "vector" as const };
   const full = await recall.recallCandidates(input, sql);
   assert.ok(members.every((id) => full.candidates.some((c) => c.articleId === id)) && full.stats.scored >= 4);
   const capped = await recall.recallCandidates(input, sql, { ...recall.RECALL_LIMITS, vectors: 2, background: 0 });
@@ -438,4 +501,15 @@ test("recall stays within its bounds: the window, and one budget of vectors per 
   assert.ok(capped.stats.vectorsRead <= 3 && capped.candidates.length === 2, "the query and two candidates, nothing else compared");
   const narrow = await recall.recallCandidates(input, sql, { ...recall.RECALL_LIMITS, window: 3 });
   assert.deepEqual([narrow.stats.window, narrow.stats.windowFull], [3, true], "a window at its bound is reported");
+  assert.equal(narrow.recallComplete, false, "a window at its bound may have left the live engine's match out");
+  const narrowLexical = await recall.recallCandidates({ ...input, mode: "lexical" }, sql, { ...recall.RECALL_LIMITS, window: 3 });
+  assert.deepEqual([narrowLexical.stats.windowFull, narrowLexical.recallComplete], [true, false], "in lexical mode too");
+  // Lexical mode reads no vector and has no vector budget: every report of the pool is compared, as live compares it.
+  const lexical = await recall.recallCandidates({ ...input, mode: "lexical" }, sql, { ...recall.RECALL_LIMITS, vectors: 2, background: 0 });
+  assert.ok(lexical.recallComplete && lexical.stats.vectorsRead === 0 && lexical.stats.scored >= lexical.stats.pool - 1);
+  assert.ok(
+    members.every((id) => lexical.candidates.some((c) => c.articleId === id && c.cosine === null)),
+    "all four found by their overlap, beyond the vector budget",
+  );
+  assert.equal(capped.recallComplete, true, "vector mode with the report's vector");
 });
