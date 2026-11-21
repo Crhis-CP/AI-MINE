@@ -128,7 +128,7 @@ ORDER BY 2, 3, 4;
 -- [M3a] Recall similarity of judged candidates by the judge's relation, last 60 days.
 -- Measures: the similarity score recorded with every candidate the model judged, banded, against the relation the
 --   model returned (SAME_OCCURRENCE, SAME_STORY, UNRELATED, ROUNDUP; none when the candidate was not judged). A same-URL
---   candidate is recorded with score 1. While embeddings are off (production so far: M2b and M2c return no rows) the
+--   candidate is recorded with score 1. While embeddings are off (production so far: M2b returned no rows) the
 --   score is the character-pair overlap (events/relate.ts lexicalSimilarity: shared character bigrams over the smaller
 --   set, so a short text inside a long one scores 1), not a cosine; the bands keep the cosine bars' edges only so the
 --   two kinds can be set side by side.
@@ -730,37 +730,39 @@ ORDER BY 2;
 --   live grouping did not group).
 -- Measures: groups of articles with one stored content hash (title, body and excerpt alike) from more than one source,
 --   discovered in the last 30 days, every copy with a body of 500 bytes or more (a hash over a short or empty body ties
---   unrelated title-only items); per group, how many distinct stories its copies sit in now, and how many copies sit in
---   none. Stories merged by an editor or the engine count once: a merge moves the facts (events/merge.ts). Exact copies
---   only, so reworded duplicates, which character-pair recall can miss, are not counted: a lower bound.
+--   unrelated title-only items). Only copies the live engine placed in a fact count (a primary or report member: it
+--   places only editorial reports that passed relevance, so roundups, discussion posts, archive history and rejected
+--   items stay out), and a group needs two of them. Per group: how many distinct stories its placed copies sit in now.
+--   Stories merged by an editor or the engine count once: a merge moves the facts (events/merge.ts). Exact copies only,
+--   so reworded duplicates, which character-pair recall can miss, are not counted: split_across_stories is a lower bound.
 -- Decides: whether duplicates go ungrouped at a level readers notice, before the embeddings question (option C of
 --   the recall review) goes to the Owner.
--- Columns: measure, groups, articles, split_across_stories, one_story, some_unplaced
+-- Columns: measure, groups, articles, split_across_stories, one_story
 WITH twins AS (
   SELECT content_hash
   FROM articles
   WHERE content_hash IS NOT NULL AND discovered_at > now() - interval '30 days'
   GROUP BY content_hash
   HAVING count(DISTINCT source_id) > 1 AND min(octet_length(coalesce(body_text, ''))) >= 500
-), copies AS (
-  SELECT a.content_hash, a.id, m.story_id
+), placed AS (
+  SELECT a.content_hash, a.source_id, m.story_id
   FROM articles a
   JOIN twins t ON t.content_hash = a.content_hash
-  LEFT JOIN LATERAL (
+  JOIN LATERAL (
     SELECT min(f.story_id) AS story_id
     FROM fact_articles fa JOIN facts f ON f.id = fa.fact_id
     WHERE fa.article_id = a.id AND fa.role IN ('primary', 'report')
-  ) m ON true
+  ) m ON m.story_id IS NOT NULL
   WHERE a.discovered_at > now() - interval '30 days'
 ), groups AS (
-  SELECT content_hash, count(*) AS n, count(DISTINCT story_id) AS stories, count(*) FILTER (WHERE story_id IS NULL) AS unplaced
-  FROM copies
+  SELECT content_hash, count(*) AS n, count(DISTINCT story_id) AS stories
+  FROM placed
   GROUP BY content_hash
+  HAVING count(*) > 1 AND count(DISTINCT source_id) > 1
 )
 SELECT 'M13' AS measure,
   count(*)::int AS groups,
   coalesce(sum(n), 0)::int AS articles,
   count(*) FILTER (WHERE stories > 1)::int AS split_across_stories,
-  count(*) FILTER (WHERE stories = 1 AND unplaced = 0)::int AS one_story,
-  count(*) FILTER (WHERE unplaced > 0)::int AS some_unplaced
+  count(*) FILTER (WHERE stories = 1)::int AS one_story
 FROM groups;
