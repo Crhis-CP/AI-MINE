@@ -1,13 +1,11 @@
-// How many events are on the hot list right now (TASK-0367): the real count of its window, with the time it was taken.
-// Without data the block names the rule and leads to the list, with no number at all.
+// How many events were on the hot list when the film was recorded (TASK-0367), with the rule that counts them and the way
+// to today's list. Without the figure the block names the rule only, with no number at all.
 import { IntentLink as Link } from "../../../components/ui/IntentLink";
-import { useLocale, useTr } from "../../../i18n";
-import { dateFormatFor } from "../../../lib/format";
-import type { LiveHot } from "./types";
+import { useTr } from "../../../i18n";
+import type { FilmHot } from "./types";
 
-export function HotCount({ hot }: { hot: LiveHot | null }) {
+export function HotCount({ hot }: { hot: FilmHot | null }) {
   const tr = useTr();
-  const { monthDayTime } = dateFormatFor(useLocale() === "en");
   return (
     <div>
       {hot && (
@@ -18,7 +16,6 @@ export function HotCount({ hot }: { hot: LiveHot | null }) {
       )}
       <p className="mt-2 text-[12.5px] leading-[1.7] text-ink-3">
         {tr("最近 {hours} 小时内被至少两家独立来源报道的矿业事件，符合条件的全部列出。", { hours: hot?.windowHours ?? 72 })}
-        {hot?.computedAt && <span className="text-ink-4"> {tr("统计于 {time}", { time: monthDayTime(hot.computedAt) })}</span>}
       </p>
       <Link to="/hot" className="mt-1 inline-flex min-h-10 items-center text-[13px] font-semibold text-accent hover:text-hot">
         {tr("看现在的热点榜")} →

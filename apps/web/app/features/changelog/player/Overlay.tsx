@@ -4,14 +4,14 @@
 import { type CSSProperties, Fragment } from "react";
 import { IntentLink as Link } from "../../../components/ui/IntentLink";
 import { useLocale, useTr } from "../../../i18n";
-import { countryName, usePriceWords } from "../live/format";
-import type { LiveData } from "../live/types";
+import { countryName, usePriceWords } from "../blocks/format";
+import type { FilmData } from "../blocks/types";
 import { columns, countArea, feedRows, frame, trendBox } from "./scenes";
 import type { Scene, Script } from "./types";
 
 const at = (x: number, y: number, w?: number): CSSProperties => ({ left: x, top: y, width: w });
 
-export function Overlay({ script, scene, data, w, h, onLeave }: { script: Script; scene: Scene; data: LiveData; w: number; h: number; onLeave: () => void }) {
+export function Overlay({ script, scene, data, w, h, onLeave }: { script: Script; scene: Scene; data: FilmData; w: number; h: number; onLeave: () => void }) {
   const tr = useTr();
   const say = usePriceWords();
   const english = useLocale() === "en";
@@ -39,7 +39,7 @@ export function Overlay({ script, scene, data, w, h, onLeave }: { script: Script
         </div>
       );
     case "feed": {
-      const lists = (data.countries ?? []).filter((c) => c.items.length);
+      const lists = data.countries.filter((c) => c.items.length);
       const rows = feedRows(w, h);
       return (
         <>
@@ -54,7 +54,7 @@ export function Overlay({ script, scene, data, w, h, onLeave }: { script: Script
           {lists.flatMap((c, ci) =>
             c.items.map((item, i) => (
               <p
-                key={`${c.code}-${item.id}`}
+                key={`${c.code}-${item.at}-${item.title}`}
                 data-k={`row-${ci}-${i}`}
                 className="pl-row"
                 style={{ ...at(rows[i]!.x + 18, rows[i]!.y, rows[i]!.w - 30), height: rows[i]!.h }}
@@ -70,12 +70,12 @@ export function Overlay({ script, scene, data, w, h, onLeave }: { script: Script
     }
     case "trend": {
       const box = trendBox(w, h);
-      const metals = data.metals ?? [];
+      const metals = data.metals;
       return (
         <>
           {heading}
           {metals.map((metal, i) => (
-            <Fragment key={metal.key}>
+            <Fragment key={`${metal.metal}-${metal.quote}`}>
               <p data-k={`metal-${i}`} className="pl-sub" style={at(box.x, box.y - 26, box.w)}>
                 <b>{say(metal.metal)}</b> {say(metal.quote)} · {say(metal.unit)}
               </p>

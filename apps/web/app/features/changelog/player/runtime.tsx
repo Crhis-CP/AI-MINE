@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTr } from "../../../i18n";
+import { usePeriodLabel, useSnapshotCaption } from "../blocks/format";
 import { Engine } from "./engine";
 import type { PlayerProps } from "./Film";
 import { Overlay } from "./Overlay";
@@ -21,6 +22,9 @@ export function PlayerDialog({ script, data, onClose }: PlayerProps) {
   const bar = useRef<HTMLDivElement>(null);
   const toggleButton = useRef<HTMLButtonElement>(null);
   const engine = useRef<Engine | null>(null);
+  // Read through a ref: the engine is made once per film, and the language does not change while it plays.
+  const period = useRef(usePeriodLabel());
+  const caption = useSnapshotCaption();
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [ended, setEnded] = useState(false);
@@ -42,6 +46,7 @@ export function PlayerDialog({ script, data, onClose }: PlayerProps) {
       data,
       builders: BUILDERS,
       ambient,
+      period: (point) => period.current(point),
       hooks: {
         scene: setIndex,
         progress: (share) => {
@@ -134,7 +139,9 @@ export function PlayerDialog({ script, data, onClose }: PlayerProps) {
           >
             <div ref={bar} className="pl-bar" />
           </div>
-          <span className="pl-time">{tr("约 {s} 秒", { s: seconds })}</span>
+          <span className="pl-time">
+            {caption(data.takenAt)} · {tr("约 {s} 秒", { s: seconds })}
+          </span>
           <button type="button" className="pl-button pl-close" aria-label={tr("关闭")} onClick={onClose}>
             ✕
           </button>

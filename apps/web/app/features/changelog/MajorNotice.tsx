@@ -1,7 +1,8 @@
-import type { CSSProperties, ReactNode } from "react";
+import { type CSSProperties, type ReactNode, useContext } from "react";
+import { FilmRecordings } from "./films/context";
 import { useTr } from "../../i18n";
 import { Wordmark } from "../../components/Logo";
-import { Inline, dateHeading } from "./text";
+import { Inline, useReleaseLabels } from "./text";
 import { Convergence } from "./AggregationFlow";
 import { showcaseFor } from "./showcases";
 import type { Release } from "./release";
@@ -9,7 +10,7 @@ import "./changelog-flow.css";
 
 /**
  * With a showcase (showcases.tsx: a major update's by version, any other entry's by its moment), the first line leads,
- * the showcase follows, and the lines it does not already show are listed after it (folded away when there are many).
+ * the showcase follows, and the remaining lines are listed after it (folded away when there are many).
  */
 const FOLD_AFTER = 5;
 
@@ -285,11 +286,13 @@ function Beats() {
 
 /** Announcement page. Steps light in order, then a light keeps traveling the line. Hover lifts one step. */
 export function FeatureNotice({ release }: { release: Release }) {
-  const h = dateHeading(release.date);
+  const labels = useReleaseLabels();
+  const h = labels.date(release.date);
   const parts = parseFeature(release.body);
-  const label = release.version ? `${release.kind} ${release.version}` : release.kind;
+  const label = labels.kind(release.kind, release.version);
   const test = release.kind === "公告" && release.title === "目前是测试版";
-  const showcase = showcaseFor(release);
+  // An element, not a component: the function is made anew each time, so it is called rather than mounted.
+  const showcase = showcaseFor(release, useContext(FilmRecordings));
   // The site's mark heads the major updates and the beta notice; an ordinary update with a showcase goes without it.
   const mark = release.kind === "重大更新" || test;
   return (
@@ -316,10 +319,7 @@ export function FeatureNotice({ release }: { release: Release }) {
       </h2>
       {test && <Beats />}
       {showcase ? (
-        <ShowcaseBody
-          lines={parts.paragraphs.filter((line, i) => i === 0 || !showcase.covers.some((re) => re.test(line)))}
-          showcase={showcase.render(release)}
-        />
+        <ShowcaseBody lines={parts.paragraphs} showcase={showcase()} />
       ) : (
         <div className="mt-4 max-w-[42em] space-y-3 text-[15px] leading-[1.85] text-ink-2">
           {parts.paragraphs.map((p, i) => (

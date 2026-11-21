@@ -147,13 +147,6 @@
   background: var(--fs-chip);
   color: var(--fs-ink-soft);
 }
-.film-line {
-  fill: none;
-  stroke: var(--fs-gold);
-  stroke-width: 2;
-  opacity: 0.55;
-}
-
 /* A light that keeps traveling the notice line after the entrance has finished. */
 @keyframes notice-sheen {
   from {

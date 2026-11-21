@@ -11,8 +11,11 @@ export interface Scene {
   ms: number;
   /** The scene's heading in the film and on its storyboard card. */
   heading: Phrase;
-  /** The release line the storyboard card shows under the heading, found by these words (the copy may be rewritten). */
-  line?: RegExp;
+  /**
+   * What changed, in the reader's words, under the heading of its storyboard card. A scene's change lives here, with the
+   * scene, not in the entry's own lines, which keep to the 1–3 the changelog standard allows for what the film does not show.
+   */
+  text?: Phrase;
   /** Where the scene's subject lives on the site. */
   to?: string;
 }

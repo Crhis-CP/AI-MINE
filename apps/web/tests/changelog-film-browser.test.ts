@@ -1,13 +1,14 @@
-// The changelog film (TASK-0367, Owner 2026-11-21: “点开能看”): the player and Three.js load only when a reader presses
-// play; Space plays and pauses, Esc closes and gives focus back; closing frees the canvas, five times over; with reduced
-// motion the button leads to the storyboard and nothing is loaded; the storyboard's country switch does not move the
-// page; the price line answers the arrow keys with real published points. Run after `npm run build -w @amp/web`.
+// The changelog film (TASK-0367, Owner 2026-11-21: “点开能看”, a recording of one moment): the player and Three.js load
+// only when a reader presses play; Space plays and pauses, Esc closes and gives focus back; closing frees the canvas,
+// five times over; with reduced motion the button leads to the storyboard and nothing is loaded; the storyboard's
+// country switch does not move the page; the price line answers the arrow keys with the recorded published points. Run after `npm run build -w @amp/web`.
 // Production web, synthetic read-only API; the browser draws WebGL in software (SwiftShader).
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import { readFile } from "node:fs/promises";
 import { after, before, test } from "node:test";
 import { chromium, type Browser, type BrowserContextOptions } from "@playwright/test";
 import { browserExecutable, isolateBrowser } from "./browser.ts";
@@ -16,98 +17,26 @@ import { webEnvironment } from "../runtime-env.ts";
 let browser: Browser,
   web: ChildProcess,
   origin = "";
-const now = new Date().toISOString();
 const release = {
   date: "2026-11-15",
   time: "02:24",
   kind: "更新",
   title: "合成的最新更新",
-  body: ["合成导语。", "合成：本国最新的 5 条动态。", "合成：一条走势线。", "合成：最近 72 小时。", "合成：左边解读、右边原文。"],
+  body: ["合成导语。", "合成：没有画进演示的一条。"],
 };
-const item = (id: string, title: string) => ({
-  id,
-  title,
-  summary: null,
-  reason: null,
-  publishedAt: now,
-  timelineAt: now,
-  category: null,
-  tags: [],
-  score: null,
-  selected: false,
-  channel: "news",
-  source: { name: "合成来源" },
-});
-const pool = (code: string, items: unknown[]) => ({
-  filters: { channel: "all", category: null, tag: null, topic: null, jurisdiction: code, q: null, tab: "time" },
-  items,
-  page: 1,
-  pageCount: 1,
-  total: items.length,
-  todayCount: items.length,
-  freshness: now,
-  generatedAt: now,
-});
-const period = (day: string) => ({ start: day, end: day, label: `合成${day}` });
+/** The film's recording, as committed beside its scenes. */
+const recording: {
+  countries: Array<{ code: string; items: Array<{ title: string }> }>;
+  metals: Array<{ unit: string; decimals: number; points: Array<{ label: string; value: string }> }>;
+} = JSON.parse(await readFile(new URL("../app/features/changelog/films/2026-11-15/snapshot.json", import.meta.url), "utf8"));
 const answers: Record<string, unknown> = {
   "/api/site/changelog": { latestVersion: "2026-11-15T02:24", releases: [release] },
   "/api/site/meta": { changelogVersion: "2026-11-15T02:24", filings: { icp: null, publicSecurity: null, newsLicense: null } },
   "/api/site/content-version": { version: "1", withdrawalVersion: "1" },
-  "/api/site/hot": { computedAt: now, ruleVersion: "合成", windowHours: 72, entries: [{}, {}, {}] },
-  "/api/site/metal-prices": {
-    generatedAt: now,
-    intro: "合成",
-    latest: [{ tag: "日", label: "合成", stale: false, extras: [] }],
-    sources: [
-      {
-        key: "s",
-        name: "合成官方来源",
-        tag: "日",
-        status: "fresh",
-        latest: { label: "合成", release: { label: "合成", url: "https://example.org/", date: null } },
-      },
-    ],
-    metals: [
-      {
-        key: "copper",
-        name: "铜",
-        quotes: [
-          {
-            key: "s.copper",
-            source: "s",
-            title: "合成现货价",
-            spec: null,
-            footnote: null,
-            value: "103.00",
-            unit: "美元/吨",
-            currency: "USD",
-            decimals: 2,
-            period: period("2026-11-03"),
-            change: null,
-            history: [
-              { period: period("2026-11-01"), value: "101.00" },
-              { period: period("2026-11-02"), value: "99.50" },
-              { period: period("2026-11-03"), value: "103.00" },
-            ],
-          },
-        ],
-      },
-    ],
-    notes: [],
-    officialLinks: [],
-  },
 };
 const api = createServer((req, res) => {
   const url = new URL(req.url ?? "/", "http://fixture");
   res.setHeader("content-type", "application/json");
-  if (url.pathname === "/api/site/pool") {
-    const code = url.searchParams.get("jurisdiction");
-    const items =
-      code === "CN"
-        ? [item("cn-1", "合成中国一号很长很长的标题，用来占两行的位置，看切换时页面会不会跳动"), item("cn-2", "合成中国二")]
-        : [item("ar-1", "合成阿根廷一")];
-    return res.end(JSON.stringify(pool(code ?? "", items)));
-  }
   const answer = answers[url.pathname];
   if (answer) return res.end(JSON.stringify(answer));
   res.statusCode = 404;
@@ -229,7 +158,7 @@ test("with reduced motion the button leads to the storyboard and loads nothing",
   }
 });
 
-test("switching country does not move the page; the price line steps through real published points", async () => {
+test("switching country does not move the page; the price line steps through the recorded published points", async () => {
   const { context, page } = await open({ viewport: { width: 390, height: 844 } });
   try {
     const board = page.getByRole("list", { name: "分镜" });
@@ -237,15 +166,24 @@ test("switching country does not move the page; the price line steps through rea
     const before = await height();
     await board.getByRole("button", { name: "阿根廷" }).click();
     assert.equal(await board.getByRole("button", { name: "阿根廷" }).getAttribute("aria-pressed"), "true");
-    assert.ok(await board.getByRole("link", { name: /合成阿根廷一/ }).isVisible());
+    const argentina = recording.countries.find((country) => country.code === "AR")!.items[0]!.title;
+    assert.ok(await board.getByText(argentina).isVisible());
     assert.equal(await height(), before, "the storyboard keeps its height");
-    const line = board.getByRole("slider");
-    assert.equal(await line.getAttribute("aria-valuetext"), "合成2026-11-03 103.00 美元/吨");
+    const copper = recording.metals[0]!;
+    const read = (i: number) => {
+      const point = copper.points.at(i)!;
+      const price = Number(point.value).toLocaleString("en-US", { minimumFractionDigits: copper.decimals, maximumFractionDigits: copper.decimals });
+      return `${point.label} ${price} ${copper.unit}`;
+    };
+    const line = board.getByRole("slider").first();
+    assert.equal(await line.getAttribute("aria-valuetext"), read(-1));
     await line.focus();
     await page.keyboard.press("ArrowLeft");
-    assert.equal(await line.getAttribute("aria-valuetext"), "合成2026-11-02 99.50 美元/吨");
+    assert.equal(await line.getAttribute("aria-valuetext"), read(-2));
     await page.keyboard.press("Home");
-    assert.equal(await line.getAttribute("aria-valuetext"), "合成2026-11-01 101.00 美元/吨");
+    assert.equal(await line.getAttribute("aria-valuetext"), read(0));
+    // Said once the key has stepped, not on every pointer move.
+    assert.equal(await board.locator("p[aria-live=polite]").first().textContent(), read(0));
   } finally {
     await context.close();
   }

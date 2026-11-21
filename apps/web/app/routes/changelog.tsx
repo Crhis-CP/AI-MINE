@@ -10,28 +10,22 @@ import { pageMeta } from "../lib/seo";
 import { AsideCard, ReadingLayout } from "../components/ui/Page";
 import { IconChevronRight } from "../components/icons";
 import { FeatureNotice } from "../features/changelog/MajorNotice";
-import { Inline, dateHeading } from "../features/changelog/text";
+import { Inline, useReleaseLabels } from "../features/changelog/text";
 import { type Release, releaseKey } from "../features/changelog/release";
-import { LIVE_BLOCKS, showcaseFor } from "../features/changelog/showcases";
-import { loadLive } from "../features/changelog/live/load.server";
-import { LiveDataContext } from "../features/changelog/live/context";
+import { showcaseFor } from "../features/changelog/showcases";
+import { FilmRecordings } from "../features/changelog/films/context";
+import { filmsFor } from "../features/changelog/films/recordings.server";
+import type { FilmReel } from "../features/changelog/films/context";
 
 /** Shared caches may keep this page for five minutes. */
 export function headers() {
   return { "Cache-Control": "public, max-age=0, s-maxage=300, stale-while-revalidate=600" };
 }
 
-/**
- * The changelog, and beside it the real figures its showcases draw (TASK-0367): all read at once, the figures with short
- * deadlines, so a slow figure never holds the page; one that fails is drawn as a sketch. The page stays shareable for
- * five minutes either way (headers()), which bounds how often these reads run.
- */
+/** The changelog, and the films among its entries with their recordings (TASK-0367): fixed files, no further reads. */
 export async function loader({ request }: { request: Request }) {
-  const [changelog, live] = await Promise.all([
-    apiGet<{ releases: Release[] }>("/api/site/changelog", { signal: request.signal }),
-    loadLive(LIVE_BLOCKS, request.signal),
-  ]);
-  return { releases: changelog.releases, live };
+  const changelog = await apiGet<{ releases: Release[] }>("/api/site/changelog", { signal: request.signal });
+  return { releases: changelog.releases, films: filmsFor(changelog.releases.map(releaseKey)) };
 }
 
 export function meta() {
@@ -52,8 +46,8 @@ const KIND_DOT: Record<Release["kind"], string> = {
   下线: "bg-ink-4",
 };
 
-function isFeatureNotice(r: Release): boolean {
-  return r.kind === "重大更新" || (r.kind === "公告" && r.title === "目前是测试版") || showcaseFor(r) !== undefined;
+function isFeatureNotice(r: Release, films: Readonly<Record<string, FilmReel>>): boolean {
+  return r.kind === "重大更新" || (r.kind === "公告" && r.title === "目前是测试版") || showcaseFor(r, films) !== undefined;
 }
 
 function ReleaseBody({ lines }: { lines: string[] }) {
@@ -82,6 +76,58 @@ function ReleaseBody({ lines }: { lines: string[] }) {
         <Inline text={b} />
       </p>
     ),
+  );
+}
+
+/** A day's entries in order, the plain ones in a row sharing one card, each feature notice on its own. */
+function runs(
+  releases: Release[],
+  films: Readonly<Record<string, FilmReel>>,
+): Array<{ feature: Release; plain?: never } | { feature?: never; plain: Release[] }> {
+  const out: Array<{ feature: Release; plain?: never } | { feature?: never; plain: Release[] }> = [];
+  for (const r of releases) {
+    const last = out.at(-1);
+    if (isFeatureNotice(r, films)) out.push({ feature: r });
+    else if (last?.plain) last.plain.push(r);
+    else out.push({ plain: [r] });
+  }
+  return out;
+}
+
+function PlainCard({ date, releases }: { date: string; releases: Release[] }) {
+  const labels = useReleaseLabels();
+  const h = labels.date(date);
+  return (
+    <section className="card scroll-mt-16 lg:scroll-mt-6 px-5 lg:px-7">
+      <h2 className="flex items-baseline gap-3 border-b border-line-soft py-4">
+        <time dateTime={date} className="text-[18px] font-bold text-ink">
+          {h.label}
+        </time>
+        <span className="text-[12px] text-ink-4">{h.weekday}</span>
+      </h2>
+      <ol>
+        {releases.map((r) => (
+          <li
+            key={`${r.date}-${r.time ?? ""}-${r.title}`}
+            className="grid gap-x-8 gap-y-2 border-b border-line-soft py-5 last:border-b-0 sm:grid-cols-[88px_minmax(0,1fr)]"
+          >
+            <div className="flex items-center gap-3 sm:block">
+              {r.time && <span className="mono block text-[12.5px] text-ink-3">{r.time}</span>}
+              <span
+                className={`inline-flex items-center gap-1.5 text-[11.5px] ${r.kind === "重大更新" ? "font-semibold text-hot" : "text-ink-4"} ${r.time ? "sm:mt-1.5" : ""}`}
+              >
+                <span className={`size-1.5 rounded-full ${KIND_DOT[r.kind]}`} aria-hidden="true" />
+                {labels.kind(r.kind, r.version)}
+              </span>
+            </div>
+            <article className="min-w-0 sm:border-l sm:border-line sm:pl-8">
+              <h3 className="text-[15px] font-bold leading-snug text-ink">{r.title}</h3>
+              <ReleaseBody lines={r.body} />
+            </article>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -144,54 +190,22 @@ export default function ChangelogPage() {
         </h1>
         <p className="mt-1.5 text-[13px] text-ink-3">{tr("新功能、调整、下线，都写在这里。")}</p>
       </header>
-      <LiveDataContext value={data.live}>
+      <FilmRecordings value={data.films}>
         <div className="space-y-4">
-          {[...groups.entries()].map(([date, releases]) => {
-            const h = dateHeading(date);
-            const features = releases.filter(isFeatureNotice);
-            const plain = releases.filter((r) => !isFeatureNotice(r));
-            return (
-              <div key={date} id={`d-${date}`} className="scroll-mt-16 lg:scroll-mt-6 space-y-4">
-                {features.map((r) => (
-                  <FeatureNotice key={`${r.date}-${r.time ?? ""}-${r.title}`} release={r} />
-                ))}
-                {plain.length > 0 && (
-                  <section className="card scroll-mt-16 lg:scroll-mt-6 px-5 lg:px-7">
-                    <h2 className="flex items-baseline gap-3 border-b border-line-soft py-4">
-                      <time dateTime={date} className="text-[18px] font-bold text-ink">
-                        {h.label}
-                      </time>
-                      <span className="text-[12px] text-ink-4">{h.weekday}</span>
-                    </h2>
-                    <ol>
-                      {plain.map((r) => (
-                        <li
-                          key={`${r.date}-${r.time ?? ""}-${r.title}`}
-                          className="grid gap-x-8 gap-y-2 border-b border-line-soft py-5 last:border-b-0 sm:grid-cols-[88px_minmax(0,1fr)]"
-                        >
-                          <div className="flex items-center gap-3 sm:block">
-                            {r.time && <span className="mono block text-[12.5px] text-ink-3">{r.time}</span>}
-                            <span
-                              className={`inline-flex items-center gap-1.5 text-[11.5px] ${r.kind === "重大更新" ? "font-semibold text-hot" : "text-ink-4"} ${r.time ? "sm:mt-1.5" : ""}`}
-                            >
-                              <span className={`size-1.5 rounded-full ${KIND_DOT[r.kind]}`} aria-hidden="true" />
-                              {r.version ? `${r.kind} ${r.version}` : r.kind}
-                            </span>
-                          </div>
-                          <article className="min-w-0 sm:border-l sm:border-line sm:pl-8">
-                            <h3 className="text-[15px] font-bold leading-snug text-ink">{r.title}</h3>
-                            <ReleaseBody lines={r.body} />
-                          </article>
-                        </li>
-                      ))}
-                    </ol>
-                  </section>
-                )}
-              </div>
-            );
-          })}
+          {[...groups.entries()].map(([date, releases]) => (
+            <div key={date} id={`d-${date}`} className="scroll-mt-16 lg:scroll-mt-6 space-y-4">
+              {/* Within a day, strictly by time too: an entry with its own showcase stands between the list cards. */}
+              {runs(releases, data.films).map((run) =>
+                run.feature ? (
+                  <FeatureNotice key={releaseKey(run.feature) + run.feature.title} release={run.feature} />
+                ) : (
+                  <PlainCard key={releaseKey(run.plain[0]!) + run.plain[0]!.title} date={date} releases={run.plain} />
+                ),
+              )}
+            </div>
+          ))}
         </div>
-      </LiveDataContext>
+      </FilmRecordings>
     </ReadingLayout>
   );
 }

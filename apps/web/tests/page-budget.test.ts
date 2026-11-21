@@ -115,8 +115,8 @@ test("regulation and changelog styles travel with their pages; admin styles stay
 });
 
 test("the changelog film's player and Three.js load only on press: no page links them, and they stay small", () => {
-  // TASK-0367 (Owner 2026-11-21: the film is opened, “点开能看”). Measured: the player chunk 138994 gzip bytes, the
-  // changelog's first load 226638 (scripts) against 221996 before the film.
+  // TASK-0367 (Owner 2026-11-21: the film is opened, “点开能看”). Measured: the player chunk 139299 gzip bytes, the
+  // changelog's first load 226634 (scripts) against 221996 before the film.
   const built = manifest("public");
   const assets = readdirSync(path.join(client("public"), "assets"));
   const players = assets.filter((file) => file.endsWith(".js") && readPublic(`/assets/${file}`).includes("WebGLRenderer"));

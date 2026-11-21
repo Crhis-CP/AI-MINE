@@ -343,11 +343,33 @@ test("the 2026-11-14 and 2026-11-15 entries read as one update at its latest tim
   assert.equal(shown?.title, "首页先看本国，外文全文几分钟内翻好");
   assert.ok([...shown!.title].length <= 24);
   assert.equal(readerWordingProblem([shown!.title, ...shown!.body]), null);
-  // The changelog page's own change is not a reader update (changelog standard, section 1), and no line repeats.
+  // The changelog page's own change is not a reader update (changelog standard, section 1), and no line repeats; the
+  // changes the film shows are told by its scenes, so the entry keeps to three lines of its own.
   assert.ok(!shown!.body.some((line) => line.includes("更新日志")));
   assert.equal(new Set(shown!.body).size, shown!.body.length);
+  assert.ok(shown!.body.length <= 3);
+  // Only articles whose full text may be shown get a translation of it (DEC-31): the copy does not claim every one.
+  assert.ok(shown!.body.some((line) => line.includes("可以看全文的外文文章")));
   // The 2026-11-14 entry, whose lines the 2026-11-15 one carried again, is out of the reader log; its record stays.
   const earlier = edits.find((edit) => edit.date === "2026-11-14" && edit.time === "08:40");
   assert.equal(earlier?.title, "首页先看本国，第一次打开有动画");
   assert.equal(earlier?.copy, null);
+});
+
+test("entries keep to the standard's length: ordinary ones 1–3 lines, major updates up to 10 (changelog standard, section 3)", () => {
+  // Applies to what readers see from the standard's date on (2026-11-06): the hand-written history and every rewrite, and
+  // the pending note unless it is already published and shown in its rewrite. Older entries stay as they were (section 5).
+  const read = (name: string) => JSON.parse(readFileSync(new URL(`../industry/${name}`, import.meta.url), "utf8"));
+  const edits: ChangelogCopyEdit[] = read("changelog-copy-edits.json");
+  const since = "2026-11-06";
+  const entries: Array<{ at: string; kind?: string; body: string[] }> = [
+    ...validateChangelog(read("changelog.json")).releases.map((r) => ({ at: r.date, kind: r.kind, body: r.body })),
+    ...edits.flatMap((edit) => (edit.copy ? [{ at: edit.date, kind: edit.copy.kind, body: edit.copy.body }] : [])),
+  ];
+  const note = read("release-note.json").note;
+  if (!publishedNoteRewrite(note, edits)) entries.push({ at: "9999-12-31", kind: note.kind, body: note.body });
+  for (const entry of entries.filter((one) => one.at >= since)) {
+    const most = entry.kind === "重大更新" ? 10 : 3;
+    assert.ok(entry.body.length >= 1 && entry.body.length <= most, `${entry.at}: ${entry.body.length} lines, at most ${most}`);
+  }
 });

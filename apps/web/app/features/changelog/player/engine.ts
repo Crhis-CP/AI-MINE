@@ -3,7 +3,7 @@
 // It plays the script's scenes in turn from one clock: pausing stops the clock and the drawing, a hidden tab or a canvas
 // scrolled away pauses it too, and closing frees every geometry, material and the WebGL context itself.
 import { Color, type Material, type Mesh, type Object3D, OrthographicCamera, Group, SRGBColorSpace, Scene as ThreeScene, WebGLRenderer } from "three";
-import type { LiveData } from "../live/types";
+import type { FilmData, FilmPricePoint } from "../blocks/types";
 import type { Scene, Script } from "./types";
 
 export interface Palette {
@@ -22,9 +22,11 @@ export interface SceneContext {
   w: number;
   h: number;
   palette: Palette;
-  data: LiveData;
+  data: FilmData;
   /** The scene's HTML words; a scene moves its own elements (found by data-k) in step with the drawing. */
   overlay: HTMLElement;
+  /** A published period in the reader's language. */
+  period: (point: FilmPricePoint) => string;
 }
 
 /** A scene drawn at `ms` into itself (0 to its length). */
@@ -90,8 +92,9 @@ export interface EngineOptions {
   /** The element holding the current scene's words. */
   overlay: HTMLElement;
   script: Script;
-  data: LiveData;
+  data: FilmData;
   builders: Record<Scene["kind"], Builder>;
+  period: (point: FilmPricePoint) => string;
   /** What stays behind every scene (drawn with the whole film's elapsed time). */
   ambient: (ctx: SceneContext) => Drawn;
   hooks: EngineHooks;
@@ -125,10 +128,11 @@ export class Engine {
   private readonly canvas: HTMLCanvasElement;
   private readonly overlay: HTMLElement;
   private readonly script: Script;
-  private readonly data: LiveData;
+  private readonly data: FilmData;
   private readonly builders: EngineOptions["builders"];
   private readonly ambientBuilder: EngineOptions["ambient"];
   private readonly hooks: EngineHooks;
+  private readonly period: EngineOptions["period"];
 
   constructor(options: EngineOptions) {
     const { canvas, script } = options;
@@ -139,6 +143,7 @@ export class Engine {
     this.builders = options.builders;
     this.ambientBuilder = options.ambient;
     this.hooks = options.hooks;
+    this.period = options.period;
     this.renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "low-power" });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.setClearColor(0x000000, 0);
@@ -159,7 +164,7 @@ export class Engine {
   private ambientDraw: Drawn | null = null;
 
   private context(group: Group): SceneContext {
-    return { group, w: this.w, h: this.h, palette: this.palette, data: this.data, overlay: this.overlay };
+    return { group, w: this.w, h: this.h, palette: this.palette, data: this.data, overlay: this.overlay, period: this.period };
   }
 
   /** Builds the scene at `index` again (a new scene, or the same one at a new size). */

@@ -22,8 +22,8 @@ import {
   RingGeometry,
   Vector3,
 } from "three";
-import { plot, priceLabel } from "../live/format";
-import type { LiveMetal } from "../live/types";
+import { plot, priceLabel } from "../blocks/format";
+import type { FilmMetal } from "../blocks/types";
 import { type Builder, type Drawn, type SceneContext, clamp01, easeOut, span } from "./engine";
 
 export interface Box {
@@ -161,7 +161,7 @@ export function feedRows(w: number, h: number): Box[] {
 
 /** Five cards slide in for each country in turn, as the home page lists its newest; the titles ride on them. */
 const feed: Builder = (ctx, scene) => {
-  const lists = (ctx.data.countries ?? []).filter((c) => c.items.length);
+  const lists = ctx.data.countries.filter((c) => c.items.length);
   const turns = Math.max(1, lists.length);
   const turn = scene.ms / turns;
   const rows = feedRows(ctx.w, ctx.h);
@@ -196,23 +196,22 @@ export function trendBox(w: number, h: number): Box {
 
 /** The line draws itself from the real published periods; a light runs at its head and the overlay reads that point. */
 const trend: Builder = (ctx, scene) => {
-  const metals = ctx.data.metals ?? [];
+  const metals = ctx.data.metals;
   const box = trendBox(ctx.w, ctx.h);
   const turns = Math.max(1, metals.length);
   const turn = scene.ms / turns;
   const say = words(ctx);
   // Without prices: a fixed sketch line, the overlay marks it as one.
-  const shapes: LiveMetal[] = metals.length
+  const shapes: FilmMetal[] = metals.length
     ? metals
     : [
         {
-          key: "sketch",
           metal: "",
           quote: "",
           source: "",
           unit: "",
           decimals: null,
-          points: [5, 7, 6, 9, 8, 11, 10, 13].map((v, i) => ({ label: String(i), end: String(i), value: String(v) })),
+          points: [5, 7, 6, 9, 8, 11, 10, 13].map((v, i) => ({ label: String(i), start: String(i), end: String(i), value: String(v) })),
         },
       ];
   const drawn = shapes.map((metal) => {
@@ -272,7 +271,7 @@ const trend: Builder = (ctx, scene) => {
       opacity(d.halo, 0.25 * fade);
       if (metals.length) {
         const point = d.metal.points[at]!;
-        say.text(`point-${i}`, point.label);
+        say.text(`point-${i}`, ctx.period(point));
         say.text(`value-${i}`, priceLabel(point.value, d.metal.decimals));
         say.show(`read-${i}`, span(t, 300, 300) * fade, Math.max(0, Math.min(x - box.x, box.w - say.width(`read-${i}`))), 0);
       }

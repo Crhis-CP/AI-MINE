@@ -251,9 +251,10 @@
   transform-origin: left;
 }
 .pl-time {
-  font-size: 12.5px;
+  max-width: 45%;
+  font-size: 12px;
+  line-height: 1.35;
   color: rgb(255 255 255 / 0.75);
-  white-space: nowrap;
 }
 .pl-panel:focus {
   outline: none;

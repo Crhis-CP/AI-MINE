@@ -1,15 +1,14 @@
 // The film's place on the page (TASK-0367): a poster frame with a play button, and under it the storyboard, every scene
-// drawn still with its real figures and links. Pressing play loads the player (and Three.js) for the first time; with
+// drawn still with the figures the film recorded (a snapshot of one day, said so on both). Pressing play loads the player (and Three.js) for the first time; with
 // reduced motion, or where the browser cannot draw WebGL, the button leads to the storyboard instead. Nothing of the
 // player is in the page's own scripts or in the server's render.
 import { type ComponentType, type ReactNode, useEffect, useRef, useState } from "react";
 import { useTr } from "../../../i18n";
-import { Inline } from "../text";
-import { CountryLatest } from "../live/CountryLatest";
-import { countryName, plot, priceLabel, usePriceWords } from "../live/format";
-import { HotCount } from "../live/HotCount";
-import { MetalTrend } from "../live/MetalTrend";
-import type { LiveData } from "../live/types";
+import { CountryLatest } from "../blocks/CountryLatest";
+import { countryName, priceLabel, usePriceWords, useSnapshotCaption } from "../blocks/format";
+import { HotCount } from "../blocks/HotCount";
+import { MetalTrend } from "../blocks/MetalTrend";
+import type { FilmData } from "../blocks/types";
 import { PolicySketch } from "../PolicySketch";
 import { type Scene, type Script, scriptMs } from "./types";
 
@@ -26,12 +25,12 @@ function webgl(): boolean {
 
 export interface PlayerProps {
   script: Script;
-  data: LiveData;
+  data: FilmData;
   onClose: () => void;
 }
 
 /** The still form of each scene kind that has content of its own; the title and closing scenes have none. */
-function Still({ scene, data }: { scene: Scene; data: LiveData }): ReactNode {
+function Still({ scene, data }: { scene: Scene; data: FilmData }): ReactNode {
   switch (scene.kind) {
     case "feed":
       return <CountryLatest countries={data.countries} />;
@@ -48,34 +47,33 @@ function Still({ scene, data }: { scene: Scene; data: LiveData }): ReactNode {
 
 export const storyScenes = (script: Script) => script.scenes.filter((scene) => scene.kind !== "title" && scene.kind !== "outro");
 
-export function Storyboard({ script, data, lines, id }: { script: Script; data: LiveData; lines: string[]; id: string }) {
+export function Storyboard({ script, data, id }: { script: Script; data: FilmData; id: string }) {
   const tr = useTr();
+  const caption = useSnapshotCaption();
   return (
-    <ol id={id} tabIndex={-1} aria-label={tr("分镜")} className="mt-4 grid gap-3 outline-none sm:grid-cols-2 lg:grid-cols-3">
-      {storyScenes(script).map((scene, i) => {
-        const line = scene.line ? lines.find((one) => scene.line!.test(one)) : undefined;
-        return (
-          <li
-            key={scene.heading}
-            className={`animate-fade-up flex min-w-0 flex-col rounded-control border border-line bg-bg-sunk/60 p-4 ${scene.kind === "feed" ? "sm:col-span-2 lg:col-span-3" : ""}`}
-            style={{ animationDelay: `${200 + i * 120}ms` }}
-          >
-            <div className="flex items-baseline gap-2">
-              <span className="mono text-[11px] font-semibold text-ink-4">{String(i + 1).padStart(2, "0")}</span>
-              <h3 className="text-[15.5px] font-bold text-ink">{tr(scene.heading)}</h3>
-            </div>
-            {line && (
-              <p className="mt-1 text-[13px] leading-[1.75] text-ink-3">
-                <Inline text={line} />
-              </p>
-            )}
-            <div className="mt-3 flex-1">
-              <Still scene={scene} data={data} />
-            </div>
-          </li>
-        );
-      })}
-    </ol>
+    <>
+      <p className="mt-4 text-[12px] text-ink-4">{caption(data.takenAt)}</p>
+      <ol id={id} tabIndex={-1} aria-label={tr("分镜")} className="mt-2 grid gap-3 outline-none sm:grid-cols-2 lg:grid-cols-3">
+        {storyScenes(script).map((scene, i) => {
+          return (
+            <li
+              key={scene.heading}
+              className={`animate-fade-up flex min-w-0 flex-col rounded-control border border-line bg-bg-sunk/60 p-4 ${scene.kind === "feed" ? "sm:col-span-2 lg:col-span-3" : ""}`}
+              style={{ animationDelay: `${200 + i * 120}ms` }}
+            >
+              <div className="flex items-baseline gap-2">
+                <span className="mono text-[11px] font-semibold text-ink-4">{String(i + 1).padStart(2, "0")}</span>
+                <h3 className="text-[15.5px] font-bold text-ink">{tr(scene.heading)}</h3>
+              </div>
+              {scene.text && <p className="mt-1 text-[13px] leading-[1.75] text-ink-3">{tr(scene.text)}</p>}
+              <div className="mt-3 flex-1">
+                <Still scene={scene} data={data} />
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </>
   );
 }
 
@@ -86,22 +84,18 @@ const IconPlay = () => (
 );
 
 /**
- * The poster frame: the film's title over a line drawn from a real price, and the figures the film will show. Wide
- * screens keep a film's proportions; on a phone the frame has a fixed height that holds the English title in three lines
- * above the figures, so nothing below moves while the web font arrives.
+ * The poster frame: the film's title, the day it was recorded and the figures it shows, kept clear of one another.
+ * Wide screens keep a film's proportions; on phones and tablets the frame has a fixed height that holds the English
+ * title in three lines, the day and the figures, so nothing below moves while the web font arrives.
  */
-function Poster({ script, data, still, onPlay }: { script: Script; data: LiveData; still: boolean; onPlay: () => void }) {
+function Poster({ script, data, still, onPlay }: { script: Script; data: FilmData; still: boolean; onPlay: () => void }) {
   const tr = useTr();
   const say = usePriceWords();
+  const caption = useSnapshotCaption();
   const seconds = Math.round(scriptMs(script) / 1000);
-  const metal = data.metals?.[0];
-  const line = metal
-    ? plot(metal, 400, 120, 0)
-        .map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`)
-        .join("")
-    : null;
+  const metal = data.metals[0];
   const chips = [
-    ...(data.countries ?? []).filter((c) => countryName(c.code)).map((c) => `${tr(countryName(c.code)!)} · ${tr("{n} 条", { n: c.items.length })}`),
+    ...data.countries.filter((c) => countryName(c.code)).map((c) => `${tr(countryName(c.code)!)} · ${tr("{n} 条", { n: c.items.length })}`),
     ...(metal ? [`${say(metal.metal)} ${priceLabel(metal.points.at(-1)!.value, metal.decimals)}`] : []),
     ...(data.hot ? [tr("热点 {n} 件", { n: data.hot.count })] : []),
     `${tr("解读")} | ${tr("原文")}`,
@@ -111,17 +105,13 @@ function Poster({ script, data, still, onPlay }: { script: Script; data: LiveDat
       type="button"
       onClick={onPlay}
       aria-label={still ? tr("查看分镜：{title}", { title: tr(script.title) }) : tr("播放演示：{title}（约 {s} 秒）", { title: tr(script.title), s: seconds })}
-      className="flow-screen film-poster group/poster relative flex h-72 w-full overflow-hidden rounded-control border text-left sm:h-auto sm:aspect-[16/7]"
+      className="flow-screen film-poster group/poster relative flex h-[23rem] w-full overflow-hidden rounded-control border text-left xl:h-auto xl:aspect-[16/7]"
     >
-      {line && (
-        <svg viewBox="0 -10 400 140" preserveAspectRatio="none" className="absolute inset-x-0 bottom-0 h-2/3 w-full" aria-hidden="true">
-          <path d={line} className="film-line" vectorEffect="non-scaling-stroke" />
-        </svg>
-      )}
       <span className="relative flex w-full flex-col justify-between gap-6 p-5 sm:p-7">
         <span>
           <span className="film-kicker block text-[12px] font-semibold tracking-wide">{still ? tr("分镜") : tr("演示 · 约 {s} 秒", { s: seconds })}</span>
           <span className="mt-1.5 line-clamp-3 max-w-[20em] text-[20px] font-black leading-[1.3] sm:text-[26px]">{tr(script.title)}</span>
+          <span className="film-kicker mt-1 block text-[11.5px] opacity-80">{caption(data.takenAt)}</span>
         </span>
         <span className="flex items-end justify-between gap-4">
           <span className="flex flex-wrap gap-1.5">
@@ -144,7 +134,7 @@ function Poster({ script, data, still, onPlay }: { script: Script; data: LiveDat
 }
 
 /** The poster, the storyboard, and the player once asked for. */
-export function Film({ script, data, lines, id }: { script: Script; data: LiveData; lines: string[]; id: string }) {
+export function Film({ script, data, id }: { script: Script; data: FilmData; id: string }) {
   const tr = useTr();
   const [still, setStill] = useState(false);
   const [note, setNote] = useState(false);
@@ -188,7 +178,7 @@ export function Film({ script, data, lines, id }: { script: Script; data: LiveDa
         <Poster script={script} data={data} still={still} onPlay={play} />
       </div>
       {note && <p className="mt-2 text-[12.5px] text-ink-3">{tr("这个浏览器放不了动画，下面是同样内容的分镜。")}</p>}
-      <Storyboard script={script} data={data} lines={lines} id={`${id}-board`} />
+      <Storyboard script={script} data={data} id={`${id}-board`} />
       {Player && open && (
         <Player
           script={script}

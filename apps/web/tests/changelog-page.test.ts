@@ -1,7 +1,7 @@
 // Run after `npm run build --workspace @amp/web`. The changelog page on the real production server with a synthetic
 // API (TASK-0038): a date-only entry shows no time at all, never 00:00, and a major update shows its version. TASK-0367:
-// strictly newest first, and each entry with a showcase keeps its own (the 2026.11 map, the 2026-11-15 film), drawn
-// from the public reads the loader makes beside the changelog, or as sketches when those fail.
+// strictly newest first, also within a day, and each entry with a showcase keeps its own (the 2026.11 map, the 2026-11-15
+// film); a film draws its own recording (films/<date>/snapshot.json), never the live site.
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
@@ -12,15 +12,15 @@ import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { webEnvironment } from "../runtime-env.ts";
 
-/** The 2026-11-15 entry: its film's scenes find their lines by these words (showcases.tsx). */
-const FILM_LINES = [
-  "合成导语：外文全文更快。",
-  "合成：在中国或阿根廷打开首页，顶部先是本国最新的 5 条动态。",
-  "合成：每种金属下面多了一条走势线。",
-  "合成：热点榜统计最近 72 小时的事件。",
-  "合成：法规页改成左边解读、右边原文。",
-  "合成：没有画进演示的一条。",
-];
+/** The 2026-11-15 entry, whose film is keyed by its moment (showcases.tsx); its lines are the ones the film does not show. */
+const FILM_LINES = ["合成导语：外文全文更快。", "合成：没有画进演示的一条。"];
+/** The film's recording, as committed beside its scenes. */
+const recording: {
+  takenAt: string;
+  countries: Array<{ code: string; items: Array<{ title: string }> }>;
+  metals: Array<{ metal: string; unit: string; decimals: number; points: Array<{ label: string; value: string }> }>;
+  hot: { count: number };
+} = JSON.parse(await readFile(new URL("../app/features/changelog/films/2026-11-15/snapshot.json", import.meta.url), "utf8"));
 const changelog = {
   latestVersion: "2026-11-15T02:24",
   releases: [
@@ -53,81 +53,6 @@ const changelog = {
     { date: "2026-09-15", kind: "公告", title: "合成的只有日期的条目", body: ["合成说明。"] },
   ],
 };
-const now = new Date().toISOString();
-const item = (id: string, title: string) => ({
-  id,
-  title,
-  summary: null,
-  reason: null,
-  publishedAt: now,
-  timelineAt: now,
-  category: null,
-  tags: [],
-  score: null,
-  selected: false,
-  channel: "news",
-  source: { name: "合成来源" },
-});
-const pool = (code: string, items: unknown[]) => ({
-  filters: { channel: "all", category: null, tag: null, topic: null, jurisdiction: code, q: null, tab: "time" },
-  items,
-  page: 1,
-  pageCount: 1,
-  total: items.length,
-  todayCount: items.length,
-  freshness: now,
-  generatedAt: now,
-});
-const pools: Record<string, unknown> = {
-  CN: pool("CN", [item("cn-1", "合成中国一"), item("cn-2", "合成中国二")]),
-  AR: pool("AR", [item("ar-1", "合成阿根廷一")]),
-};
-const period = (day: string) => ({ start: day, end: day, label: `合成${day}` });
-const metalPrices = {
-  generatedAt: now,
-  intro: "合成",
-  latest: [{ tag: "日", label: "合成", stale: false, extras: [] }],
-  sources: [
-    {
-      key: "s",
-      name: "合成官方来源",
-      tag: "日",
-      status: "fresh",
-      latest: { label: "合成", release: { label: "合成", url: "https://example.org/", date: null } },
-    },
-  ],
-  metals: [
-    {
-      key: "copper",
-      name: "铜",
-      quotes: [
-        {
-          key: "s.copper",
-          source: "s",
-          title: "合成现货价",
-          spec: null,
-          footnote: null,
-          value: "103.00",
-          unit: "美元/吨",
-          currency: "USD",
-          decimals: 2,
-          period: period("2026-11-03"),
-          change: null,
-          history: [
-            { period: period("2026-11-01"), value: "101.00" },
-            { period: period("2026-11-02"), value: "99.50" },
-            { period: period("2026-11-03"), value: "103.00" },
-          ],
-        },
-      ],
-    },
-  ],
-  notes: [],
-  officialLinks: [],
-};
-const hot = { computedAt: now, ruleVersion: "合成", windowHours: 72, entries: [{}, {}, {}, {}, {}, {}, {}] };
-/** Whether the public reads beside the changelog fail (the page then draws sketches). */
-let liveFails = false;
 const asked: string[] = [];
 let web: ChildProcess;
 /** What the synthetic API serves; one test swaps in the real hand-written file. */
@@ -138,24 +63,6 @@ const api = createServer((req, res) => {
   res.setHeader("Content-Type", "application/json");
   asked.push(req.url ?? "");
   if (req.url === "/api/site/changelog") return res.end(JSON.stringify(served));
-  const url = new URL(req.url ?? "/", "http://fixture");
-  const live =
-    url.pathname === "/api/site/pool"
-      ? pools[url.searchParams.get("jurisdiction") ?? ""]
-      : url.pathname === "/api/site/hot"
-        ? hot
-        : url.pathname === "/api/site/metal-prices"
-          ? metalPrices
-          : undefined;
-  if (live && !liveFails) return res.end(JSON.stringify(live));
-  if (live) {
-    res.statusCode = 503;
-    return res.end(JSON.stringify({ code: "unavailable" }));
-  }
-  if (req.url === "/api/site/meta")
-    return res.end(JSON.stringify({ changelogVersion: served.latestVersion, filings: { icp: null, publicSecurity: null, newsLicense: null } }));
-  // Answered, so a page is shareable as it would be in production (a missing answer keeps it out of every cache).
-  if (req.url === "/api/site/content-version") return res.end(JSON.stringify({ version: "1", withdrawalVersion: "1" }));
   res.statusCode = 404;
   res.end(JSON.stringify({ code: "not_found" }));
 });
@@ -337,7 +244,7 @@ test("two entries with showcases each render their own, under their own dates", 
   const film = shown.find((card) => card.includes("合成的最新更新"))!;
   const map = shown.find((card) => card.includes("合成的地图版本"))!;
   // The 2026-11-15 entry: its film's poster, its storyboard, its own lines; none of the 2026.11 showcase.
-  assert.match(film, /aria-label="播放演示：首页先看本国，金属走势、热点榜与法规并排（约 34 秒）"/);
+  assert.match(film, /aria-label="播放演示：首页先看本国，还有金属走势、热点榜和法规页新版式（约 34 秒）"/);
   assert.match(film, /aria-label="分镜"/);
   assert.doesNotMatch(film, /本次主角|id="world-map"|改版前后/);
   // The 2026.11 entry keeps its map and before/after pictures, and has no film.
@@ -347,88 +254,87 @@ test("two entries with showcases each render their own, under their own dates", 
   assert.doesNotMatch(map, /播放演示|aria-label="分镜"/);
 });
 
-test("the film's storyboard draws the real figures read beside the changelog, each linking to its page", async () => {
+test("the film's storyboard draws its own recording: headlines shown, not linked; no read of the live site", async () => {
   asked.length = 0;
   const { cards: shown } = await cards();
   const film = shown.find((card) => card.includes("合成的最新更新"))!;
-  // The country block: each country's newest items, each opening the item's own page.
-  for (const [id, title] of [
-    ["cn-1", "合成中国一"],
-    ["cn-2", "合成中国二"],
-    ["ar-1", "合成阿根廷一"],
-  ])
-    assert.match(film, new RegExp(`href="/items/${id}"[^>]*>[\\s\\S]*?${title}`), title);
+  // Every recorded headline, as text: a recording does not link items, which may since have changed or gone.
+  for (const country of recording.countries) for (const item of country.items) assert.ok(film.includes(item.title.replaceAll("&", "&amp;")), item.title);
+  assert.doesNotMatch(film, /href="\/items\//);
   assert.match(film, /aria-pressed="true"[^>]*>中国</);
-  // The price line from the published periods only, its latest point read out; the hot list's real count.
-  assert.match(film, /role="slider"[^>]*aria-valuetext="合成2026-11-03 103\.00 美元\/吨"/);
-  assert.match(film, />7<\/span><span[^>]*>件事件在热点榜上/);
-  assert.match(film, /href="\/hot"/);
-  assert.match(film, /href="\/metals"/);
-  // The lines the scenes show are not listed again under the film; the others are.
-  assert.match(film, /合成导语：外文全文更快。/);
-  assert.match(film, /合成：没有画进演示的一条。/);
-  assert.equal(film.split("合成：每种金属下面多了一条走势线。").length, 2, "the trend line's words appear once, on its storyboard card");
-  assert.doesNotMatch(film, /示意图<\/p>/, "no sketch where real figures were read");
-  // The site frame's two reads, one of the changelog and one of each figure: the two countries, the prices, the hot list.
-  assert.deepEqual(asked.map((url) => new URL(url, "http://x").pathname).sort(), [
-    "/api/site/changelog",
-    "/api/site/content-version",
-    "/api/site/hot",
-    "/api/site/meta",
-    "/api/site/metal-prices",
-    "/api/site/pool",
-    "/api/site/pool",
-  ]);
+  // The recorded price line, its last published point read out; the recorded hot-list count; the day it was taken.
+  const copper = recording.metals[0]!;
+  const last = copper.points.at(-1)!;
+  const price = Number(last.value).toLocaleString("en-US", { minimumFractionDigits: copper.decimals, maximumFractionDigits: copper.decimals });
+  assert.ok(film.includes(`aria-valuetext="${last.label} ${price} ${copper.unit}"`), "the slider reads the last recorded point");
+  assert.match(film, new RegExp(`>${recording.hot.count}</span><span[^>]*>件事件在热点榜上`));
+  assert.match(film, /画面为 2026年11月22日 的截取/);
+  // Sections are links; the scenes tell their change in their own words, so the entry's own lines are listed once.
+  for (const to of ['href="/"', 'href="/metals"', 'href="/hot"']) assert.ok(film.includes(to), to);
+  for (const line of FILM_LINES) assert.equal(film.split(line).length, 2, line);
+  assert.match(film, /热点榜不再分周几/);
+  // The page reads the changelog and the site frame's two answers, nothing else: no figures from the live site.
+  assert.deepEqual(asked.map((url) => new URL(url, "http://x").pathname).sort(), ["/api/site/changelog", "/api/site/content-version", "/api/site/meta"]);
 });
 
-test("when the figures cannot be read the film's cards draw sketches, and the page is still shared for five minutes", async () => {
-  assert.match((await fetch(`${origin}/changelog`)).headers.get("cache-control") ?? "", /s-maxage=300/, "shared with the figures read");
-  liveFails = true;
+test("within a day entries run strictly by time: a film stands between the list cards", async () => {
+  served = {
+    latestVersion: "2026-11-15T03:10",
+    releases: [
+      { date: "2026-11-15", time: "03:10", kind: "优化", title: "合成三点十分", body: ["合成说明。"] },
+      { date: "2026-11-15", time: "02:24", kind: "更新", title: "合成的最新更新", body: FILM_LINES },
+      { date: "2026-11-15", time: "01:05", kind: "优化", title: "合成一点零五", body: ["合成说明。"] },
+    ] as typeof changelog.releases,
+  };
   try {
-    const res = await fetch(`${origin}/changelog`);
-    assert.equal(res.status, 200);
-    assert.match(res.headers.get("cache-control") ?? "", /s-maxage=300/);
-    const page = (await res.text()).replace(/<script\b[\s\S]*?<\/script>/g, "");
-    const film = page.split(/<section class="card /).find((card) => card.includes("合成的最新更新"))!;
-    assert.match(film, /打开首页看本国最新动态/);
-    assert.match(film, /示意图/);
-    assert.match(film, /看现在的热点榜/);
-    assert.doesNotMatch(film, /件事件在热点榜上|href="\/items\//);
-    assert.match(film, /aria-label="播放演示：/, "the film can still be opened");
+    const { page, cards: shown } = await cards();
+    const order = ["合成三点十分", "合成的最新更新", "合成一点零五"].map((title) => page.indexOf(title));
+    assert.deepEqual(
+      [...order].sort((a, b) => a - b),
+      order,
+      "newest first within the day",
+    );
+    const entries = shown.filter((card) => /合成三点十分|合成的最新更新|合成一点零五/.test(card));
+    assert.equal(entries.length, 3, "the film sits between two list cards");
+    assert.match(entries[0]!, /合成三点十分/);
+    assert.match(entries[1]!, /aria-label="播放演示：/);
+    assert.match(entries[2]!, /合成一点零五/);
   } finally {
-    liveFails = false;
+    served = changelog;
   }
 });
 
-test("the English page shows the film's words in English", async () => {
+test("the English page shows the film's words, kinds, dates and price periods in English", async () => {
   const { cards: shown } = await cards("/en/changelog");
   const film = shown.find((card) => card.includes("合成的最新更新"))!;
-  assert.match(film, /aria-label="Play the demo: Your country first, metal trends, the hot list and regulations side by side \(about 34 s\)"/);
+  assert.match(film, /aria-label="Play the demo: Your country first, plus metal trends, the hot list and the new regulation layout \(about 34 s\)"/);
+  assert.match(film, />Update</);
+  assert.match(film, /Nov 15, 2026/);
+  assert.match(film, /Snapshot of Nov 22, 2026/);
   assert.match(film, />China</);
   assert.match(film, />Argentina</);
   assert.match(film, /Copper/);
   assert.match(film, /events on the hot list/);
+  // The price periods and units in English, from the recorded dates.
+  assert.match(film, /aria-valuetext="Nov 19, 2026 12,570\.00 USD\/t"/);
+  assert.match(film, /The hot list no longer depends on the weekday/);
 });
 
-test("the published 2026-11-15 copy: each scene finds its line, the rest are listed once under the film", async () => {
+test("the published 2026-11-15 copy: at most three lines of its own, each shown once beside the film", async () => {
   const edits: Array<{ date: string; time: string; copy: { title: string; body: string[] } | null }> = JSON.parse(
     await readFile(new URL("../../../industry/changelog-copy-edits.json", import.meta.url), "utf8"),
   );
   const copy = edits.find((edit) => edit.date === "2026-11-15" && edit.time === "02:24")?.copy;
   assert.ok(copy, "the 2026-11-15 entry has its reader copy");
+  assert.ok(copy.body.length <= 3, "an ordinary entry keeps to three lines; the film tells the rest");
   const releases = [{ date: "2026-11-15", time: "02:24", kind: "更新", ...copy }];
   served = { latestVersion: "2026-11-15T02:24", releases };
   try {
     const { cards: shown } = await cards();
     const film = shown[0]!;
-    const board = film.slice(film.indexOf('aria-label="分镜"'), film.indexOf("</ol></section>"));
-    const [lead, ...rest] = copy.body;
-    assert.match(film, new RegExp(`>${lead}</p>`), "the lead line opens the entry");
-    const onBoard = rest.filter((line) => board.includes(line));
-    assert.equal(onBoard.length, 4, "the four scenes each show their line");
-    // Every other line appears exactly once, in the list under the film.
-    for (const line of rest.filter((one) => !onBoard.includes(one))) assert.equal(film.split(line).length, 2, line);
-    for (const line of onBoard) assert.equal(film.split(line).length, 2, line);
+    for (const line of copy.body) assert.equal(film.split(line).length, 2, line);
+    // The four scenes' own words on the storyboard.
+    for (const words of ["本国最新的 5 条动态", "多了一条走势线", "最近 72 小时", "左边解读、右边原文"]) assert.match(film, new RegExp(words), words);
   } finally {
     served = changelog;
   }

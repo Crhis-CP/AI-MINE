@@ -1,22 +1,25 @@
-// A real trend line of a metal price (TASK-0367): one point per officially published period, joined in order and never
-// filled in. Pressing or pointing at the line, or the arrow keys once it has focus, shows that period's price as
-// published. Without data: a still sketch, marked as one, and the way to the metal prices page.
+// A metal price's trend line as the film recorded it (TASK-0367): one point per officially published period, joined in
+// order and never filled in. Pointing at the line, or the arrow keys once it has focus, shows that period's price as
+// published; screen readers hear the point when the press ends or a key steps, not on every pointer move.
 import { type KeyboardEvent, type PointerEvent, useState } from "react";
 import { IntentLink as Link } from "../../../components/ui/IntentLink";
 import { useTr } from "../../../i18n";
-import { plot, priceLabel, usePriceWords } from "./format";
-import type { LiveMetal } from "./types";
+import { plot, priceLabel, usePeriodLabel, usePriceWords } from "./format";
+import type { FilmMetal } from "./types";
 
 const W = 240,
   H = 64,
   PAD = 4;
 
-function Line({ metal }: { metal: LiveMetal }) {
+function Line({ metal }: { metal: FilmMetal }) {
   const tr = useTr();
   const say = usePriceWords();
+  const period = usePeriodLabel();
   const pts = plot(metal);
   const last = metal.points.length - 1;
   const [at, setAt] = useState(last);
+  // What the live region says: set when a press ends or a key steps, so moving the pointer is not read aloud each time.
+  const [said, setSaid] = useState("");
   const point = metal.points[at]!;
   const up = Number(metal.points[last]!.value) >= Number(metal.points[0]!.value);
   const stroke = up ? "var(--hot)" : "var(--ok)";
@@ -25,13 +28,16 @@ function Line({ metal }: { metal: LiveMetal }) {
     const box = e.currentTarget.getBoundingClientRect();
     setAt(Math.max(0, Math.min(last, Math.round(((e.clientX - box.left) / box.width) * last))));
   };
+  const text = (i: number) => `${period(metal.points[i]!)} ${priceLabel(metal.points[i]!.value, metal.decimals)} ${say(metal.unit)}`;
   const key = (e: KeyboardEvent<HTMLDivElement>) => {
     const next = { ArrowLeft: at - 1, ArrowRight: at + 1, Home: 0, End: last }[e.key];
     if (next === undefined) return;
     e.preventDefault();
-    setAt(Math.max(0, Math.min(last, next)));
+    const step = Math.max(0, Math.min(last, next));
+    setAt(step);
+    setSaid(text(step));
   };
-  const valueText = `${point.label} ${priceLabel(point.value, metal.decimals)} ${metal.unit}`;
+  const valueText = text(at);
   return (
     <figure className="min-w-0">
       <figcaption className="flex items-baseline justify-between gap-2 text-[12px] text-ink-3">
@@ -51,6 +57,7 @@ function Line({ metal }: { metal: LiveMetal }) {
         aria-valuetext={valueText}
         onPointerDown={pick}
         onPointerMove={pick}
+        onPointerUp={() => setSaid(valueText)}
         onKeyDown={key}
       >
         <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full overflow-visible" aria-hidden="true">
@@ -60,35 +67,24 @@ function Line({ metal }: { metal: LiveMetal }) {
           <circle cx={pts[at]![0]} cy={pts[at]![1]} r={3.2} fill="var(--surface)" stroke={stroke} strokeWidth={1.6} />
         </svg>
       </div>
-      <p className="mt-0.5 flex justify-between gap-2 text-[11.5px] text-ink-4" aria-live="polite">
-        <span className="truncate">{point.label}</span>
+      <p className="sr-only" aria-live="polite">
+        {said}
+      </p>
+      <p className="mt-0.5 flex justify-between gap-2 text-[11.5px] text-ink-4" aria-hidden="true">
+        <span className="truncate">{period(point)}</span>
         <span className="mono shrink-0 tabular-nums text-ink-2">{priceLabel(point.value, metal.decimals)}</span>
       </p>
     </figure>
   );
 }
 
-/** A drawn line with no figures, for when the prices could not be read. */
-export function TrendSketch() {
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full text-accent" aria-hidden="true">
-      <path d="M4 50 L40 42 L72 46 L104 30 L136 36 L168 20 L200 26 L236 14" pathLength={1} className="anim-draw stroke-current" strokeWidth={1.8} fill="none" />
-    </svg>
-  );
-}
-
-export function MetalTrend({ metals }: { metals: LiveMetal[] | null }) {
+export function MetalTrend({ metals }: { metals: FilmMetal[] }) {
   const tr = useTr();
   return (
     <div className="space-y-3">
-      {metals?.length ? (
-        metals.map((metal) => <Line key={metal.key} metal={metal} />)
-      ) : (
-        <div>
-          <TrendSketch />
-          <p className="text-[11.5px] text-ink-4">{tr("示意图")}</p>
-        </div>
-      )}
+      {metals.map((metal) => (
+        <Line key={`${metal.metal}-${metal.quote}`} metal={metal} />
+      ))}
       <Link to="/metals" className="inline-flex min-h-10 items-center text-[13px] font-semibold text-accent hover:text-hot">
         {tr("查看金属价格")} →
       </Link>
