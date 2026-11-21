@@ -3,9 +3,11 @@
 // the only one that may read the swipe tables), the stored analyses and SelectBench runs of the Owner's gold cases, the
 // swipe decks and answers, people's grouping corrections and the event shadow's agreement report; it writes no row and
 // imports no model client. Runbook: docs/runbooks/eval-replay.md.
-//   docker compose exec -T api node scripts/eval-replay.ts [--days 14]
-// Prints counts only; the full report (counts plus gold case numbers) goes to .data/eval/replay-<time>/ (gitignored).
+//   docker compose exec -T api node scripts/eval-replay.ts [--days 14] [--out <dir>]
+// Prints counts only; the full report (counts plus gold case numbers) goes to <out>/replay-<time>/, by default under the
+// system temp directory: the production image's /app is read-only for the node user, so nothing is written there.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { closeDb, initializeDb, sql, type Sql, type Tx } from "@amp/backend/db";
@@ -127,22 +129,27 @@ export async function runReplay(db: Sql, opts: { days: number; now?: Date; gold?
   });
 }
 
+/** Where the full report goes: `<base>/replay-<time>`, base defaulting to the system temp directory (writable in the image). */
+export function reportDir(generatedAt: string, base: string = path.join(tmpdir(), "aimine-eval")): string {
+  return path.join(path.resolve(base), `replay-${generatedAt.replace(/[:.]/g, "-")}`);
+}
+
 async function main() {
-  const { values } = parseArgs({ options: { days: { type: "string", default: "14" } } });
+  const { values } = parseArgs({ options: { days: { type: "string", default: "14" }, out: { type: "string" } } });
   const days = Number(values.days);
   if (!Number.isInteger(days) || days < 1 || days > 45) {
-    console.error("usage: eval-replay.ts [--days 1..45]; nothing read");
+    console.error("usage: eval-replay.ts [--days 1..45] [--out <dir>]; nothing read");
     process.exit(2);
   }
   // The API process's database role is private_ops: it may read every table above (the worker may not read ai.swipe_*).
   await initializeDb("api");
   try {
     const report = await runReplay(sql, { days });
-    const dir = path.join(ROOT, ".data/eval", `replay-${report.generatedAt.replace(/[:.]/g, "-")}`);
+    const dir = reportDir(report.generatedAt, values.out);
     mkdirSync(dir, { recursive: true });
     writeFileSync(path.join(dir, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
     writeFileSync(path.join(dir, "report.md"), renderReport(report));
-    console.log([...summaryLines(report), `报告：${path.relative(ROOT, dir)}/report.{md,json}`].join("\n"));
+    console.log([...summaryLines(report), `报告：${dir}/report.{md,json}`].join("\n"));
   } finally {
     await closeDb();
   }
