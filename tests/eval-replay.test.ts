@@ -4,6 +4,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { closeDb, initializeDb, sql } from "@amp/backend/db";
@@ -24,7 +25,7 @@ import {
   type ReplayReport,
   type SwipeCardRow,
 } from "../scripts/eval-replay-core.ts";
-import { readGold } from "../scripts/eval-replay.ts";
+import { readGold, reportDir } from "../scripts/eval-replay.ts";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const CLASSIC = "prefilter-shared@aa4cb4ab1b+selection-score-shared@a195d5bf17+weights@20542a669a+understand-shared@0000000001";
@@ -376,4 +377,12 @@ test("the replay imports no model client: none directly, and none reachable exce
   assert.ok(providers(all).includes("packages/backend/src/providers/llm.ts"), "the check can see a provider module (it is loaded through the reused files)");
   for (const file of reused) assert.ok(all.has(file));
   assert.deepEqual(providers(reached(reused)), [], "no provider module is reached except through the two reused owner files");
+});
+
+test("the report goes under the system temp directory by default, never into the read-only app directory", () => {
+  const dir = reportDir("2026-11-21T18:00:00.000Z");
+  assert.ok(dir.startsWith(path.join(tmpdir(), "aimine-eval")), dir);
+  assert.ok(!dir.startsWith(ROOT), dir);
+  assert.equal(path.basename(dir), "replay-2026-11-21T18-00-00-000Z");
+  assert.equal(reportDir("2026-11-21T18:00:00.000Z", "/var/tmp/x"), "/var/tmp/x/replay-2026-11-21T18-00-00-000Z");
 });

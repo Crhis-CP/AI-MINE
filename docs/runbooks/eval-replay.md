@@ -50,10 +50,10 @@ docker compose exec -T api node scripts/eval-replay.ts --days 30  # 1 到 45 天
 刷卡：… 天，卡 …，已答 …；按卡类、按规则各一行
 归组人工纠正（全部 / 近 14 天）：content.detach …/…，…
   保持独立等现存覆盖：…；影子开关：…；近 14 天影子对照：…
-报告：.data/eval/replay-<时间>/report.{md,json}
+报告：/tmp/aimine-eval/replay-<时间>/report.{md,json}
 ```
 
-- 完整报告（计数加金标红单的编号）写在容器里的 `/app/.data/eval/replay-<时间>/report.md` 和 `report.json`。容器重建后会消失；需要时用 `docker compose cp api:/app/.data/eval/replay-<时间> .` 取出。`.data/` 不进仓库。
+- 完整报告（计数加金标红单的编号）默认写在容器的临时目录 `/tmp/aimine-eval/replay-<时间>/report.md` 和 `report.json`（生产镜像里 `/app` 对 node 用户只读，所以不往那里写；也可以用 `--out <目录>` 指定）。容器重建后会消失；需要时用 `docker compose cp api:/tmp/aimine-eval/replay-<时间> .` 取出。
 - 报告里没有标题、正文、稿件编号、操作人或理由；只有计数、规则与提示词版本名、SelectBench 运行编号与模型名、金标编号（金标编号本来就在公开的仓库文件里）。
 
 ## 对线上的负担
