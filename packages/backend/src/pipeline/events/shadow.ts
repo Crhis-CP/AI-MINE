@@ -1,6 +1,6 @@
 // The event rules in shadow (package 2, step 2.4): after the live engine has grouped a report, decide it again by the
 // rules alone (rules.ts decideEvent: no model call, no new vector), recalling in the mode the live engine runs in
-// (recall.ts recallMode: lexical while embeddings are off, as in production), and store that answer next to a snapshot of what the
+// (recall.ts recallMode: lexical while embeddings are off, the default), and store that answer next to a snapshot of what the
 // live engine did (events.shadow_decisions). Nothing here writes a membership, a publication, an analysis or a receipt,
 // so nothing a reader sees can change; the rows measure agreement and the model calls a switch would save.
 // A report's own text (for its fingerprint and its checked day) is read only after its source is found to allow that
@@ -61,6 +61,8 @@ export type ShadowOutcome =
       verdict: EventDecision["verdict"];
       rule: EventDecision["rule"];
       wouldCall: number;
+      /** Review calls that may come on top, depending on the judge's answers: an upper bound. */
+      confirmUpperBound: number;
       recall: RecallResult["stats"] | null;
       /** Reports whose own text was read (only those whose source allows it). */
       textsRead: number;
@@ -232,6 +234,7 @@ export async function shadowDecide(articleId: string, opts: { keepExisting?: boo
     verdict: decision.verdict,
     rule: decision.rule,
     wouldCall: decision.wouldCall,
+    confirmUpperBound: decision.confirmUpperBound,
     recall: judged?.recall.stats ?? null,
     textsRead: judged?.textsRead ?? 0,
   };

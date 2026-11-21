@@ -9,9 +9,10 @@
 // key-fact matches, then by their best report's score), each with a few of its best reports, so one large fact of
 // wire copies cannot crowd the others out.
 // It runs in the mode the live engine runs in (recallMode: embeddingsAvailable, a configuration check, no call):
-//  - lexical (no embeddings: production today, DEC-29): no vector is read; every report of the pool is compared by the
+//  - lexical (no embeddings: the default, DEC-29): no vector is read; every report of the pool is compared by the
 //    live engine's own character-pair overlap (events/relate.ts lexicalScorer) against the live floor
-//    LEXICAL_RECALL_MIN, the whole pool as live recall compares it, so recall is complete;
+//    LEXICAL_RECALL_MIN, the whole pool as live recall compares it, so recall is complete while the window
+//    stays within its bound;
 //  - vector (EMBEDDINGS_ENABLED=true): vectors are only read, a missing or stale one falls back to the lexical overlap
 //    as live recall does; at most `vectors` reports get a vector per article: the reports found by address, hash,
 //    document or key fact first, then the pool's best by lexical overlap (review of design M, F11); the others of the
@@ -139,7 +140,10 @@ export interface RecallStats {
 export interface RecallResult {
   candidates: RecallHit[];
   mode: RecallMode;
-  /** Recall compared the pool as the live engine does: always in lexical mode; with vectors when the report's own vector was read. */
+  /**
+   * Recall compared the pool as the live engine does: in lexical mode whenever the window stayed within its bound; with
+   * vectors only when, besides, the report's own vector was read.
+   */
   recallComplete: boolean;
   /** A visible selected report outside the judged facts is close enough that the live engine asks the value question. */
   readingBackground: boolean;
@@ -426,6 +430,7 @@ export async function recallCandidates(input: RecallInput, db: Db = sql, limits:
   const discovered = new Map(window.map((w) => [w.id, w.discovered_at]));
   // Members bound by hand whose reports, discovered in the same 14 days, the window left out: they count as in live.
   const manual = await manualMemberships(limits.manual, db);
+  const windowFull = window.length >= limits.window || manual.length >= limits.manual;
   const bound = new Set(manual.map((m) => m.article_id).filter((id) => id !== articleId && !states.has(id)));
   for (const m of await newsShadowMaterials([...bound], 0, db))
     if (m.discovered_at.getTime() > since.getTime() && m.discovered_at.getTime() <= liveAt.getTime()) {
@@ -596,11 +601,12 @@ export async function recallCandidates(input: RecallInput, db: Db = sql, limits:
   return {
     candidates,
     mode,
-    recallComplete: mode === "lexical" || !!query,
+    // A window at its bound may have left the live engine's match out: never complete then.
+    recallComplete: !windowFull && (mode === "lexical" || !!query),
     readingBackground,
     stats: {
       window: window.length,
-      windowFull: window.length >= limits.window || manual.length >= limits.manual,
+      windowFull,
       pool: pool.length,
       scored: scoredIds.length,
       vectorsRead: read + extra.read,

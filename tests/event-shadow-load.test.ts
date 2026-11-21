@@ -135,23 +135,26 @@ async function measure(queryText: string): Promise<Cost> {
   };
 }
 
+// SHADOW_LOAD_SIZES=20000,40000 measures the worst case by hand (40,000 is the window bound); the default runs in CI.
+const SIZES = (process.env.SHADOW_LOAD_SIZES ?? "3000,6000").split(",").map(Number);
+
 test("lexical recall over the whole pool stays bounded at 3,000 and 6,000 reports", async (t) => {
   const source = await shadowSource();
   const query = words(4242);
   const text = reportText(query.title, query.summary);
-  await grow(source, 0, 3000);
-  const three = await measure(text);
-  t.diagnostic(`pool 3000: ${JSON.stringify(three)}`);
-  await grow(source, 3000, 3000);
-  const six = await measure(text);
-  t.diagnostic(`pool 6000: ${JSON.stringify(six)}`);
-  assert.deepEqual([three.pool, six.pool], [3000, 6000]);
-  for (const cost of [three, six]) {
+  let have = 0;
+  for (const size of SIZES) {
+    await grow(source, have, size - have);
+    have = size;
+    const cost = await measure(text);
+    t.diagnostic(`pool ${size}: ${JSON.stringify(cost)}`);
+    assert.equal(cost.pool, size);
     assert.ok(cost.candidates > 0, "alike wording is recalled");
-    // Generous bounds for slower machines; the diagnostics carry the measured numbers.
+    assert.ok(cost.heapAfterMB < 5, `nothing kept after the decision: ${cost.heapAfterMB} MB`);
+    // Generous bounds for slower machines, for the default sizes; the diagnostics carry the measured numbers.
+    if (size > 6000) continue;
     assert.ok(cost.cpuMs < 5000, `CPU ${cost.cpuMs} ms per decision`);
     assert.ok(cost.heapPeakMB < 150, `heap peak ${cost.heapPeakMB} MB per decision`);
-    assert.ok(cost.heapAfterMB < 5, `nothing kept after the decision: ${cost.heapAfterMB} MB`);
     assert.ok(cost.maxStallMs < 250, `longest event-loop stall ${cost.maxStallMs} ms: the other jobs keep their turns`);
   }
 });

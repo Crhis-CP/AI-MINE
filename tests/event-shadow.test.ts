@@ -497,6 +497,9 @@ test("recall stays within its bounds: the window, and with embeddings one budget
   assert.ok(capped.stats.vectorsRead <= 3 && capped.candidates.length === 2, "the query and two candidates, nothing else compared");
   const narrow = await recall.recallCandidates(input, sql, { ...recall.RECALL_LIMITS, window: 3 });
   assert.deepEqual([narrow.stats.window, narrow.stats.windowFull], [3, true], "a window at its bound is reported");
+  assert.equal(narrow.recallComplete, false, "a window at its bound may have left the live engine's match out");
+  const narrowLexical = await recall.recallCandidates({ ...input, mode: "lexical" }, sql, { ...recall.RECALL_LIMITS, window: 3 });
+  assert.deepEqual([narrowLexical.stats.windowFull, narrowLexical.recallComplete], [true, false], "in lexical mode too");
   // Lexical mode reads no vector and has no vector budget: every report of the pool is compared, as live compares it.
   const lexical = await recall.recallCandidates({ ...input, mode: "lexical" }, sql, { ...recall.RECALL_LIMITS, vectors: 2, background: 0 });
   assert.ok(lexical.recallComplete && lexical.stats.vectorsRead === 0 && lexical.stats.scored >= lexical.stats.pool - 1);

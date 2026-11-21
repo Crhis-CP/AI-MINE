@@ -1,16 +1,19 @@
 // The event rules in shadow against the live engine (package 2, step 2.4): same-fact agreement, the share that still
 // needs the model (the call forecast of a switch), counts per rule, and both engines against people's corrections.
-//   node scripts/shadow-agreement.ts [--days 14] [--json]
+//   node scripts/shadow-agreement.ts [--days 14] [--mode lexical|vector] [--json]
+// Without --mode it reads the rows of the current rules in the mode the worker last recorded (agreement.ts
+// recordedShadowRuleset), not the mode this shell's environment would pick.
 // Read-only: it reads events.shadow_decisions, the memberships as they are now and the audit log, writes nothing and
 // calls no model. What each number means: packages/backend/src/pipeline/events/agreement.ts.
 import { parseArgs } from "node:util";
 import { closeDb, initializeDb } from "@amp/backend/db";
 import { shadowAgreement } from "../packages/backend/src/pipeline/events/agreement.ts";
 
-const { values } = parseArgs({ options: { days: { type: "string", default: "14" }, json: { type: "boolean", default: false } } });
+const { values } = parseArgs({ options: { days: { type: "string", default: "14" }, mode: { type: "string" }, json: { type: "boolean", default: false } } });
 const days = Number(values.days);
-if (!Number.isInteger(days) || days < 1 || days > 45) {
-  console.error("usage: shadow-agreement.ts [--days 1..45] [--json]; nothing read");
+const mode = values.mode;
+if (!Number.isInteger(days) || days < 1 || days > 45 || (mode !== undefined && mode !== "lexical" && mode !== "vector")) {
+  console.error("usage: shadow-agreement.ts [--days 1..45] [--mode lexical|vector] [--json]; nothing read");
   process.exit(2);
 }
 const percent = (part: number, whole: number) => (whole ? `${Math.round((part / whole) * 100)}%` : "—");
@@ -19,14 +22,14 @@ await initializeDb("worker");
 try {
   const to = new Date(),
     from = new Date(to.getTime() - days * 86_400_000);
-  const a = await shadowAgreement(from, to);
+  const a = await shadowAgreement(from, to, mode ? { mode } : {});
   if (values.json) console.log(JSON.stringify(a, null, 2));
   else {
     const lines = [
       `事件新规则影子对照：${a.from} 至 ${a.to}（规则版本 ${a.ruleset}）`,
       `影子记录 ${a.rows} 条：规则试判 ${a.judged} 篇，不在规则范围 ${a.outside} 篇（编辑要求重判之前的记录不算）`,
       `不问模型就判定 ${a.decided} 篇（${percent(a.decided, a.judged)}），仍待模型判断 ${a.undecided} 篇（${percent(a.undecided, a.judged)}）`,
-      `模型调用预测：切换后约 ${a.calls.forecast} 次 = 规则试判的稿件至多 ${a.calls.wouldCall} 次 + 不在规则范围、现网调用过模型的 ${a.calls.outsideCalled} 篇各 1 次；同一批稿件里现网调用过模型的 ${a.calls.liveCalled} 篇`,
+      `模型调用预测：切换后至少 ${a.calls.forecast} 次 = 规则试判的稿件无论模型怎么回答都要的 ${a.calls.wouldCall} 次 + 不在规则范围、现网调用过模型的 ${a.calls.outsideCalled} 篇各 1 次；视模型回答，待定稿件至多再加 ${a.calls.confirmUpperBound} 次复核（合计至多 ${a.calls.forecastUpperBound} 次）；同一批稿件里现网调用过模型的 ${a.calls.liveCalled} 篇`,
       `判为同一件事 ${a.sameFact.rows} 篇，与现在的归组一致 ${a.sameFact.agree} 篇（${percent(a.sameFact.agree, a.sameFact.rows)}）`,
       `成对比较 ${a.pairs.total} 对：规则判同 ${a.pairs.shadowSame}，现网同 ${a.pairs.liveSame}，两边都同 ${a.pairs.both}（准确 ${percent(a.pairs.both, a.pairs.shadowSame)}，召回 ${percent(a.pairs.both, a.pairs.liveSame)}）`,
       `规则判新事件 ${a.newEvent.rows} 篇：现网并入已有事实 ${a.newEvent.liveJoinedFact} 篇，作为新事实并入已有事件 ${a.newEvent.liveJoinedStory} 篇`,

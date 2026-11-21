@@ -151,9 +151,13 @@ test("with no shadow row in a window the report reads nothing else and says so i
     queries++;
     return sql(strings, ...values);
   }) as unknown as typeof sql;
-  const a = await shadowAgreement(hoursAgo(400), hoursAgo(399), {}, counting);
+  const a = await shadowAgreement(hoursAgo(400), hoursAgo(399), { mode: "lexical" }, counting);
   assert.deepEqual([a.rows, a.judged, a.outside, a.calls.forecast, a.human.pairs, a.human.truncated, a.windowFull], [0, 0, 0, 0, 0, false, 0]);
   assert.equal(queries, 1, "one read of the shadow rows, and no audit log, membership or queue read after it");
+  // Without a mode it first reads which mode the worker last recorded (one query by the decided_at index).
+  queries = 0;
+  await shadowAgreement(hoursAgo(400), hoursAgo(399), {}, counting);
+  assert.equal(queries, 2);
 });
 
 test("agreement: same-fact agreement, the undecided share, the call forecast and both engines against people's corrections", async () => {
@@ -238,7 +242,7 @@ test("agreement: same-fact agreement, the undecided share, the call forecast and
       judged: 6,
       decided: 6,
       undecided: 0,
-      calls: { wouldCall: 1, outsideCalled: 1, forecast: 2, liveCalled: 4 },
+      calls: { wouldCall: 1, confirmUpperBound: 0, outsideCalled: 1, forecast: 2, forecastUpperBound: 2, liveCalled: 4 },
       sameFact: { rows: 5, agree: 1 },
     },
   );
@@ -258,18 +262,59 @@ test("agreement: same-fact agreement, the undecided share, the call forecast and
   const newest = await shadowAgreement(from, to, { auditLimit: 1 });
   assert.ok(newest.human.truncated && newest.human.pairs < a.human.pairs, "past the bound only the newest corrections are read, and that is said");
 
-  assert.deepEqual(await shadowHeadline(from, to), { rows: 8, judged: 6, sameFact: 5, agree: 1, undecided: 0, forecast: 2, liveCalled: 4 });
+  assert.deepEqual(await shadowHeadline(from, to), {
+    rows: 8,
+    judged: 6,
+    sameFact: 5,
+    agree: 1,
+    undecided: 0,
+    forecast: 2,
+    confirmUpperBound: 0,
+    liveCalled: 4,
+  });
+
+  // An undecided row: one relation call for certain, and at most one review per judged fact under the bar plus one.
+  const u1 = await r();
+  await sql`INSERT INTO events.shadow_decisions(article_id,article_revision,ruleset,verdict,rule,candidates,would_call,live_verdict,live_called,decided_at)
+    VALUES(${u1},1,${shadowRuleset("lexical")},'undecided','similar_unsure',
+      ${sql.json([
+        { ...cand(a2, shared), confirmIfSame: true },
+        { ...cand(b1, other), confirmIfSame: true },
+        { ...cand(m1, merged), confirmIfSame: false },
+      ] as never)},
+      1,'new-story',true,${hoursAgo(20)})`;
+  const undecided = await shadowAgreement(hoursAgo(21), hoursAgo(19));
+  assert.deepEqual(undecided.calls, { wouldCall: 1, confirmUpperBound: 3, outsideCalled: 0, forecast: 1, forecastUpperBound: 4, liveCalled: 1 });
+  // The rows the worker recorded decide which mode is read, not this process's environment.
+  assert.equal(undecided.ruleset, shadowRuleset("lexical"));
+  assert.equal((await shadowAgreement(hoursAgo(21), hoursAgo(19), { mode: "vector" })).rows, 0, "an explicit mode reads only its rows");
+  // A worker that switched to vectors writes vector rows: from its newest row on, the report reads that mode, whatever
+  // this process's environment says.
+  await sql`INSERT INTO events.shadow_decisions(article_id,article_revision,ruleset,verdict,rule,candidates,would_call,decided_at)
+    VALUES(${u1},1,${shadowRuleset("vector")},'new_event','no_candidate','[]'::jsonb,0,now()+interval '1 minute')`;
+  try {
+    assert.equal((await shadowAgreement(hoursAgo(21), hoursAgo(19))).ruleset, shadowRuleset("vector"));
+  } finally {
+    await sql`DELETE FROM events.shadow_decisions WHERE article_id=${u1} AND ruleset=${shadowRuleset("vector")}`;
+  }
   const day: Reconciliation = {
     day: "2026-11-18",
     sources: { enabled: 0, withNew: 0, silent: { failing: 0, waiting: 0, unstable: 0, overdue: 0, unknown: 0, quiet: 0 } },
     flow: { collected: 0, public: 0, selected: 0, scoredNotPublic: 0 },
     translation: { due: 0, missing: 0 },
     balance: [],
-    shadow: { rows: 130, judged: 120, sameFact: 40, agree: 38, undecided: 50, forecast: 70, liveCalled: 100 },
+    shadow: { rows: 130, judged: 120, sameFact: 40, agree: 38, undecided: 50, forecast: 70, confirmUpperBound: 90, liveCalled: 100 },
   };
   assert.equal(
     reconcileLines(day).at(-1),
-    "事件新规则试运行（读者看不到）：归组 130 篇，其中按规则试判 120 篇；判为同一件事 40 篇，与现在的归组一致 38 篇；仍待模型判断 50 篇（42%）；估计切换后这 130 篇约需调用模型 70 次，现网调用过模型的 100 篇",
+    "事件新规则试运行（读者看不到）：归组 130 篇，其中按规则试判 120 篇；判为同一件事 40 篇，与现在的归组一致 38 篇；仍待模型判断 50 篇（42%）；估计切换后这 130 篇至少调用模型 70 次，视模型回答至多再加 90 次复核；现网调用过模型的 100 篇",
+  );
+  const { confirmUpperBound: _, ...stored } = day.shadow!;
+  assert.ok(
+    reconcileLines({ ...day, shadow: stored })
+      .at(-1)!
+      .endsWith("至少调用模型 70 次；现网调用过模型的 100 篇"),
+    "a day stored before the bound existed says nothing about it",
   );
   assert.ok(!reconcileLines({ ...day, shadow: null }).some((line) => line.startsWith("事件新规则")), "no line on a day the rules judged nothing");
 

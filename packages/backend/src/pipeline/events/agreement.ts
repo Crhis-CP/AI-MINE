@@ -4,9 +4,13 @@
 //  - the rules say "same" when the row is same_fact and the candidate's fact is the target;
 //  - the live engine says "same" when both reports are members of one fact now (re-merges and manual moves included).
 // Same-fact agreement is the share of same_fact rows whose target report shares a fact with the report now.
-// The call forecast of a switch: the rules' own estimate for the reports they judge (would_call, an upper bound per
-// report: an undecided report goes to the relation step, a decided one may still need the value or scope question),
-// plus one call for each report outside the rules on which the live engine called (those keep the live path).
+// The call forecast of a switch, in two parts. Certain: the calls the live path makes for the reports the rules judge
+// whatever the judge answers (would_call: an undecided report's relation call, a decided one's value or scope question),
+// plus one call for each report outside the rules on which the live engine called (those keep the live path). Bounded:
+// the review calls an undecided report may add, depending on the judge's answers (rules.ts confirmUpperBound over its
+// stored candidates). The live engine's own count lies between the certain part and the certain part plus the bound.
+// Which rows: the ruleset given, else the current rules in the mode the worker last recorded (its newest row), never
+// the mode of the shell the report runs in.
 // The recall hit rate looks only at rows where the live engine joined an existing fact, and only at the at most five
 // candidates a row stores; selection and background were read when the shadow ran, not when the live engine decided.
 // People's corrections label pairs, and both engines are scored against them: a "keep standalone" (grouping_overrides)
@@ -17,7 +21,8 @@
 import { groupingAuditTrail } from "../../admin/auth.ts";
 import { sql, type Db } from "../../db.ts";
 import { shadowJobsWithFullWindow } from "../../jobs/module-queues.ts";
-import type { CandidateEvidence } from "./rules.ts";
+import type { RecallMode } from "./recall.ts";
+import { type CandidateEvidence, confirmUpperBound } from "./rules.ts";
 import { shadowRuleset } from "./shadow.ts";
 
 /** Corrections read per report window, newest first; more are reported as truncated, never silently dropped. */
@@ -40,12 +45,16 @@ export interface ShadowAgreement {
   /** Rows per verdict/rule, judged or not. */
   byRule: Record<string, number>;
   calls: {
-    /** Sum of would_call over the judged rows: the calls the live path would still need for them, at most. */
+    /** Sum of would_call over the judged rows: the calls the live path makes for them whatever the judge answers. */
     wouldCall: number;
+    /** Review calls the undecided rows may add on top, depending on the judge's answers: at most this many. */
+    confirmUpperBound: number;
     /** Rows outside the rules on which the live engine called: they keep the live path, counted once each. */
     outsideCalled: number;
-    /** wouldCall + outsideCalled: the model calls a switch would still make for these reports. */
+    /** wouldCall + outsideCalled: the model calls a switch would make for these reports at least. */
     forecast: number;
+    /** forecast + confirmUpperBound: at most. */
+    forecastUpperBound: number;
     /** Rows (judged or outside) on which the live engine called at least once. */
     liveCalled: number;
   };
@@ -101,7 +110,7 @@ function empty(from: Date, to: Date, ruleset: string, rows: number): ShadowAgree
     decided: 0,
     undecided: 0,
     byRule: {},
-    calls: { wouldCall: 0, outsideCalled: 0, forecast: 0, liveCalled: 0 },
+    calls: { wouldCall: 0, confirmUpperBound: 0, outsideCalled: 0, forecast: 0, forecastUpperBound: 0, liveCalled: 0 },
     sameFact: { rows: 0, agree: 0 },
     pairs: { total: 0, shadowSame: 0, liveSame: 0, both: 0 },
     newEvent: { rows: 0, liveJoinedFact: 0, liveJoinedStory: 0 },
@@ -111,8 +120,25 @@ function empty(from: Date, to: Date, ruleset: string, rows: number): ShadowAgree
   };
 }
 
-export async function shadowAgreement(from: Date, to: Date, opts: { ruleset?: string; auditLimit?: number } = {}, db: Db = sql): Promise<ShadowAgreement> {
-  const ruleset = opts.ruleset ?? shadowRuleset(),
+/**
+ * The ruleset of the current rules in the mode the worker last recorded: the newest shadow row among the two current
+ * rulesets (by the decided_at index, newest first), lexical when there is none yet. The worker decides the mode from its
+ * own environment, which a report run elsewhere does not share.
+ */
+export async function recordedShadowRuleset(db: Db = sql): Promise<string> {
+  const current = [shadowRuleset("lexical"), shadowRuleset("vector")];
+  const [row] = await db<{ ruleset: string }[]>`SELECT ruleset FROM events.shadow_decisions WHERE ruleset=ANY(${current}::text[])
+    ORDER BY decided_at DESC LIMIT 1`;
+  return row?.ruleset ?? current[0]!;
+}
+
+export async function shadowAgreement(
+  from: Date,
+  to: Date,
+  opts: { ruleset?: string; mode?: RecallMode; auditLimit?: number } = {},
+  db: Db = sql,
+): Promise<ShadowAgreement> {
+  const ruleset = opts.ruleset ?? (opts.mode ? shadowRuleset(opts.mode) : await recordedShadowRuleset(db)),
     auditLimit = opts.auditLimit ?? AUDIT_LIMIT;
   const rows = await db<Row[]>`SELECT article_id,verdict,rule,target_fact_id,target_story_id,candidates,would_call,live_verdict,live_fact_id,
       live_story_id,live_called,decided_at
@@ -161,6 +187,7 @@ export async function shadowAgreement(from: Date, to: Date, opts: { ruleset?: st
     if (r.verdict === "undecided") out.undecided++;
     else out.decided++;
     out.calls.wouldCall += r.would_call;
+    out.calls.confirmUpperBound += confirmUpperBound(r.candidates);
     if (r.verdict === "same_fact") {
       out.sameFact.rows++;
       const target = r.candidates.find((c) => c.factId === r.target_fact_id);
@@ -204,6 +231,7 @@ export async function shadowAgreement(from: Date, to: Date, opts: { ruleset?: st
     }
   }
   out.calls.forecast = out.calls.wouldCall + out.calls.outsideCalled;
+  out.calls.forecastUpperBound = out.calls.forecast + out.calls.confirmUpperBound;
   return out;
 }
 
@@ -215,8 +243,10 @@ export interface ShadowHeadline {
   sameFact: number;
   agree: number;
   undecided: number;
-  /** calls.forecast: the model calls a switch would still make for these rows. */
+  /** calls.forecast: the model calls a switch would make for these rows at least. */
   forecast: number;
+  /** calls.confirmUpperBound: review calls that may come on top, depending on the judge's answers. Absent in days stored before it existed. */
+  confirmUpperBound?: number;
   /** Rows on which the live engine called at least once. */
   liveCalled: number;
 }
@@ -229,6 +259,7 @@ export async function shadowHeadline(from: Date, to: Date, db: Db = sql): Promis
     agree: a.sameFact.agree,
     undecided: a.undecided,
     forecast: a.calls.forecast,
+    confirmUpperBound: a.calls.confirmUpperBound,
     liveCalled: a.calls.liveCalled,
   };
 }
