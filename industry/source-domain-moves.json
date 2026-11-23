@@ -1,0 +1,14 @@
+[
+  {
+    "source_id": "rpl-torexgold",
+    "owner_entity_id": "torexgold.com",
+    "old_domain": "torexgold.com",
+    "new_domain": "torex.com",
+    "path_prefixes": ["/"],
+    "evidence_kind": "institution_announcement",
+    "evidence_url": "https://torex.com/torex-gold-changes-name-to-torex-resources-16208/",
+    "verified_at": "2026-11-13T14:55:31Z",
+    "same_institution": true,
+    "explanation_zh": "机构自身公告明确同一公司由Torex Gold Resources Inc.更名为Torex Resources Inc.并公布新网站www.torex.com；只沿用旧域既有许可，不新增用途。"
+  }
+]
