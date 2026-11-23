@@ -9,6 +9,29 @@ export function composeEnvironmentProblems(doc: unknown, name: "web" | "public-a
   const service = mapping(doc) && mapping(doc.services) ? doc.services[name] : null;
   if (!mapping(service)) return [`${prefix} service is missing or invalid`];
   const problems = name !== "api" && Object.hasOwn(service, "env_file") ? [`${prefix} must not use env_file`] : [];
+  if (name === "web" && mapping(doc) && mapping(doc.services) && Object.hasOwn(doc.services, "db")) {
+    const networks = (value: unknown): string[] | null => {
+      if (!mapping(value)) return null;
+      const raw = value.networks;
+      if (raw === null || raw === undefined) return ["default"];
+      if (Array.isArray(raw)) return raw.every((entry) => typeof entry === "string") ? raw : null;
+      return mapping(raw) ? Object.keys(raw) : null;
+    };
+    const db = doc.services.db,
+      attached = networks(db),
+      web = networks(service);
+    if (
+      !mapping(db) ||
+      db.network_mode != null ||
+      attached?.length !== 1 ||
+      attached[0] !== "db" ||
+      !mapping(doc.networks) ||
+      !mapping(doc.networks.db) ||
+      doc.networks.db.internal !== true
+    )
+      problems.push("docker-compose.yml: db must only use the internal db network");
+    if (!web || web.includes("db") || service.network_mode != null) problems.push(`${prefix} must not use the database network or a shared network namespace`);
+  }
   const raw = service.environment === undefined ? {} : service.environment;
   const entries = Array.isArray(raw)
     ? raw.map((entry) => (typeof entry === "string" ? [entry.split("=", 1)[0], entry.includes("=") ? entry.slice(entry.indexOf("=") + 1) : null] : ["", entry]))
