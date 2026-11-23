@@ -1,21 +1,24 @@
 import { FEEDBACK_LIMITS, FeedbackSubmissionFields } from "@amp/contracts/http/public";
 // Feedback: content, optional email, page URL, one optional screenshot. It stays on the server and is
 // forwarded only by the worker to the approved private feedback chat; admin pages keep the screenshot. Abuse control
-// uses an unreadable source identifier (HMAC of client IP + UA family), persistent hourly limits and expiring moderator bans.
+// uses an unreadable network identifier, persistent hourly limits and moderator bans.
 import { createHmac, randomUUID } from "node:crypto";
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { config, credential, isProduction } from "../config.ts";
-import { feedbackSql as sql } from "../db.ts";
+import { feedbackSql as sql, type Db, type Sql } from "../db.ts";
+import { clientNetwork } from "../lib/client-network.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { serverModules } from "../modules.ts";
 
 import { FeedbackRejected, feedbackPageUrl, feedbackImage } from "./feedback-validation.ts";
-import { claimFeedbackQuota } from "./feedback-quota.ts";
+import { claimFeedbackQuota, type Submission } from "./feedback-quota.ts";
 export { FeedbackRejected } from "./feedback-validation.ts";
 export { forwardPendingFeedback } from "./feedback-forward.ts";
 
 let warnedMissingPublicSecret = false;
+const warnedSiteHour = new WeakMap<Sql, number>();
+const HOUR = 3600_000;
 
 function identifierSecret(): string {
   const configured = credential("auth", "PUBLIC_RATE_LIMIT_SECRET");
@@ -31,10 +34,14 @@ export function feedbackEmailKey(email: string): string {
   return `email:${createHmac("sha256", identifierSecret()).update(email.trim().toLowerCase()).digest("base64url")}`;
 }
 
-export function feedbackSourceHash(ip: string, userAgent: string): string {
+function legacySourceHash(ip: string, userAgent: string): string {
   const matches = userAgent.match(/(Chrome|Safari|Firefox|Edg|MicroMessenger|Mobile|Android|iPhone|iPad|Mac OS X|Windows)/g);
   const uaFamily = matches ? matches.slice(0, 4).join("/") : "";
   return createHmac("sha256", identifierSecret()).update(`${ip}|${uaFamily}`).digest("base64url").slice(0, 24);
+}
+
+export function feedbackSourceHash(ip: string, _userAgent: string): string {
+  return createHmac("sha256", identifierSecret()).update(clientNetwork(ip)).digest("base64url").slice(0, 24);
 }
 
 export interface FeedbackInput {
@@ -48,6 +55,7 @@ export interface FeedbackInput {
 }
 
 export async function submitFeedback(input: FeedbackInput): Promise<{ id: number }> {
+  const db = sql;
   if (!input.idempotencyKey || !/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(input.idempotencyKey))
     throw new FeedbackRejected(400, "idempotency_key_required", "提交编号缺失或格式不正确，请刷新反馈表单后重试。");
   const content = input.content.trim();
@@ -64,7 +72,7 @@ export async function submitFeedback(input: FeedbackInput): Promise<{ id: number
   const fingerprint = sha256(stableJson({ content, email, pageUrl, screenshot: input.screenshot ? sha256(input.screenshot.data) : null }));
   const source = feedbackSourceHash(input.ip, input.userAgent);
   const emailKey = email ? feedbackEmailKey(email) : null;
-  const keys = new Set([source, ...(emailKey ? [emailKey] : [])]);
+  const keys = new Set([source, legacySourceHash(input.ip, input.userAgent), ...(emailKey ? [emailKey] : [])]);
   for (const module of serverModules()) {
     if (!module.feedbackKeys) continue;
     const extra = module.feedbackKeys(input.ip);
@@ -77,56 +85,114 @@ export async function submitFeedback(input: FeedbackInput): Promise<{ id: number
     rejection = error;
     return { id: 0 };
   };
+  const activeBan = async (connection: Db, now: Date) =>
+    (
+      await connection<{ expires_at: Date | null }[]>`SELECT expires_at FROM feedback_bans
+      WHERE source_hash=ANY(${[...keys]}::text[]) AND (expires_at IS NULL OR expires_at>${now}) ORDER BY expires_at DESC NULLS FIRST LIMIT 1`
+    )[0];
+  const siteCount = async (connection: Db, now: Date) =>
+    (await connection<{ n: number }[]>`SELECT count(created_at)::int AS n FROM feedback WHERE created_at>${new Date(now.getTime() - HOUR)}`)[0]!.n;
+  let screenshot: Awaited<ReturnType<typeof feedbackImage>> = null,
+    imageError: FeedbackRejected | undefined,
+    prepared = !input.screenshot,
+    siteFull = false;
+  const prepare = async () => {
+    try {
+      screenshot = await feedbackImage(input.screenshot);
+    } catch (error) {
+      if (!(error instanceof FeedbackRejected)) throw error;
+      imageError = error;
+    }
+    prepared = true;
+  };
+  if (input.screenshot) {
+    const now = new Date();
+    const [ban, state, prior, total] = await Promise.all([
+      activeBan(db, now),
+      db<
+        { attempts: number[]; submissions: Submission[]; paused_until: Date | null }[]
+      >`SELECT attempts,submissions,paused_until FROM feedback.submission_state WHERE source_hash=${source}`,
+      db`SELECT feedback_id FROM feedback.submissions WHERE key_hash=${keyHash}`,
+      siteCount(db, now),
+    ]);
+    const quota = state[0],
+      recent = quota?.submissions.filter((entry) => entry.at > now.getTime() - HOUR) ?? [];
+    if (
+      !ban &&
+      !prior.length &&
+      !(quota?.paused_until && quota.paused_until > now) &&
+      (quota?.attempts.filter((at) => at > now.getTime() - HOUR).length ?? 0) < FEEDBACK_LIMITS.attemptsPerHour &&
+      recent.length < FEEDBACK_LIMITS.perHour &&
+      !recent.some((entry) => entry.fingerprint === fingerprint) &&
+      total < 60
+    )
+      await prepare();
+  }
+  const needsImage = Symbol("feedback requires an image after precheck");
   try {
-    const result = await sql.begin(async (tx): Promise<{ id: number }> => {
-      await tx`SELECT pg_advisory_xact_lock(hashtext(${`feedback:${source}`}))`;
-      await tx`SELECT pg_advisory_xact_lock(hashtext(${keyHash}))`;
-      const now = new Date();
-      const [ban] = await tx<{ expires_at: Date | null }[]>`SELECT expires_at FROM feedback_bans
-        WHERE source_hash=ANY(${[...keys]}::text[]) AND (expires_at IS NULL OR expires_at>${now}) ORDER BY expires_at DESC NULLS FIRST LIMIT 1`;
-      if (ban)
-        return reject(
-          new FeedbackRejected(
-            ban.expires_at ? 429 : 403,
-            ban.expires_at ? "rate_limited" : "forbidden",
-            "暂时无法提交反馈。",
-            ban.expires_at ? Math.max(1, Math.ceil((ban.expires_at.getTime() - now.getTime()) / 1000)) : undefined,
-          ),
-        );
-      const [prior] = await tx<
-        { feedback_id: number; payload_hash: string }[]
-      >`SELECT feedback_id,payload_hash FROM feedback.submissions WHERE key_hash=${keyHash}`;
-      const quota = await claimFeedbackQuota(tx, source, fingerprint, prior?.feedback_id);
-      if (quota.error) return reject(quota.error);
-      if (prior && prior.payload_hash !== payloadHash && prior.payload_hash !== fingerprint)
-        return reject(new FeedbackRejected(409, "idempotency_conflict", "该提交编号已用于不同内容，请刷新表单后重新提交。"));
-      if (quota.duplicate) {
-        if (!prior) await tx`INSERT INTO feedback.submissions(key_hash,payload_hash,feedback_id) VALUES(${keyHash},${fingerprint},${quota.duplicate})`;
-        return { id: quota.duplicate };
-      }
-      let screenshot: Awaited<ReturnType<typeof feedbackImage>>;
-      try {
-        screenshot = await feedbackImage(input.screenshot);
-      } catch (error) {
-        if (error instanceof FeedbackRejected) return reject(error);
-        throw error;
-      }
-      let screenshotKey: string | null = null;
-      if (screenshot) {
-        const name = `${randomUUID()}.${screenshot.extension}`;
-        const dir = path.join(config.dataDir, "feedback-screenshots");
-        await mkdir(dir, { recursive: true });
-        file = path.join(dir, name);
-        await writeFile(file, screenshot.data);
-        screenshotKey = `local:${name}`;
-      }
-      const [row] = await tx<{ id: number }[]>`INSERT INTO feedback(content,email,page_url,screenshot_key,source_hash,forward_status)
+    const transact = () =>
+      db.begin(async (tx): Promise<{ id: number }> => {
+        await tx`SELECT pg_advisory_xact_lock(hashtext(${`feedback:${source}`}))`;
+        await tx`SELECT pg_advisory_xact_lock(hashtext(${keyHash}))`;
+        const now = new Date();
+        const ban = await activeBan(tx, now);
+        if (ban)
+          return reject(
+            new FeedbackRejected(
+              ban.expires_at ? 429 : 403,
+              ban.expires_at ? "rate_limited" : "forbidden",
+              "暂时无法提交反馈。",
+              ban.expires_at ? Math.max(1, Math.ceil((ban.expires_at.getTime() - now.getTime()) / 1000)) : undefined,
+            ),
+          );
+        const [prior] = await tx<
+          { feedback_id: number; payload_hash: string }[]
+        >`SELECT feedback_id,payload_hash FROM feedback.submissions WHERE key_hash=${keyHash}`;
+        const quota = await claimFeedbackQuota(tx, source, fingerprint, prior?.feedback_id);
+        if (quota.error) return reject(quota.error);
+        if (prior && prior.payload_hash !== payloadHash && prior.payload_hash !== fingerprint)
+          return reject(new FeedbackRejected(409, "idempotency_conflict", "该提交编号已用于不同内容，请刷新表单后重新提交。"));
+        if (quota.duplicate) {
+          if (!prior) await tx`INSERT INTO feedback.submissions(key_hash,payload_hash,feedback_id) VALUES(${keyHash},${fingerprint},${quota.duplicate})`;
+          return { id: quota.duplicate };
+        }
+        await tx`SELECT pg_advisory_xact_lock(hashtext('feedback:site-hour'))`;
+        if ((await siteCount(tx, now)) >= 60) {
+          siteFull = true;
+          return reject(new FeedbackRejected(429, "rate_limited", "暂时无法提交反馈。"));
+        }
+        // A ban or quota can expire between the read-only precheck and this transaction.
+        if (!prepared) throw needsImage;
+        if (imageError) return reject(imageError);
+        let screenshotKey: string | null = null;
+        if (screenshot) {
+          const name = `${randomUUID()}.${screenshot.extension}`;
+          const dir = path.join(config.dataDir, "feedback-screenshots");
+          await mkdir(dir, { recursive: true });
+          file = path.join(dir, name);
+          await writeFile(file, screenshot.data);
+          screenshotKey = `local:${name}`;
+        }
+        const [row] = await tx<{ id: number }[]>`INSERT INTO feedback(content,email,page_url,screenshot_key,source_hash,forward_status)
         VALUES(${content},${email},${pageUrl},${screenshotKey},${source},'pending') RETURNING id`;
-      await tx`INSERT INTO feedback.submissions(key_hash,payload_hash,feedback_id) VALUES(${keyHash},${fingerprint},${row!.id})`;
-      quota.submissions.push({ at: quota.now, id: row!.id, fingerprint });
-      await tx`UPDATE feedback.submission_state SET submissions=${tx.json(quota.submissions)} WHERE source_hash=${source}`;
-      return { id: row!.id };
-    });
+        await tx`INSERT INTO feedback.submissions(key_hash,payload_hash,feedback_id) VALUES(${keyHash},${fingerprint},${row!.id})`;
+        quota.submissions.push({ at: quota.now, id: row!.id, fingerprint });
+        await tx`UPDATE feedback.submission_state SET submissions=${tx.json(quota.submissions)} WHERE source_hash=${source}`;
+        return { id: row!.id };
+      });
+    let result: { id: number };
+    try {
+      result = await transact();
+    } catch (error) {
+      if (error !== needsImage) throw error;
+      await prepare();
+      result = await transact();
+    }
+    const hour = Math.floor(Date.now() / HOUR);
+    if (siteFull && warnedSiteHour.get(db) !== hour) {
+      warnedSiteHour.set(db, hour);
+      console.warn("feedback hourly capacity reached");
+    }
     if (rejection) throw rejection;
     return result;
   } catch (error) {

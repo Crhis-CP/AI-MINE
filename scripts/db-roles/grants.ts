@@ -84,7 +84,7 @@ function applicationGrants(name: string, spec: TableGrant): [DatabaseRole, strin
   if (["business", "audit"].includes(spec.access))
     for (const role of ["private_ops", "worker"] as const) result.push([role, spec.access === "audit" ? "SELECT, INSERT" : "SELECT, INSERT, UPDATE, DELETE"]);
   if (["identity", "audit"].includes(spec.access)) result.push(["auth", spec.access === "audit" ? "SELECT, INSERT" : "SELECT, INSERT, UPDATE, DELETE"]);
-  if (name === "public.feedback") result.push(["feedback_write", "INSERT, SELECT (id)"]);
+  if (name === "public.feedback") result.push(["feedback_write", "INSERT, SELECT (id, created_at)"]);
   if (name === "public.feedback_bans") result.push(["feedback_write", "SELECT"]);
   return result;
 }

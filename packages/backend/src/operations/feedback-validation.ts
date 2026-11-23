@@ -31,6 +31,26 @@ export function feedbackPageUrl(input?: string | null): string | null {
   }
 }
 
+let imageBusy = false;
+const imageWaiters = new Set<() => void>();
+async function takeImageSlot() {
+  if (!imageBusy) {
+    imageBusy = true;
+    return;
+  }
+  await new Promise<void>((resolve, reject) => {
+    const ready = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      imageWaiters.delete(ready);
+      reject(new FeedbackRejected(503, "busy", "提交的人有点多，请稍后再试。", 10));
+    }, 3000);
+    imageWaiters.add(ready);
+  });
+}
+
 /** Decode bounded pixels and re-encode, stripping EXIF/ICC and ignoring the untrusted MIME claim. */
 export async function feedbackImage(input?: { mime: string; data: Buffer } | null): Promise<{ data: Buffer; extension: string } | null> {
   if (!input) return null;
@@ -47,18 +67,25 @@ export async function feedbackImage(input?: { mime: string; data: Buffer } | nul
           ? "gif"
           : null;
   if (!format) throw bad();
+  await takeImageSlot();
   try {
-    const decoder = sharp(data, { animated: true, limitInputPixels: FEEDBACK_LIMITS.imagePixels, failOn: "warning" });
+    const decoder = sharp(data, { animated: false, limitInputPixels: FEEDBACK_LIMITS.imagePixels, failOn: "warning" });
     const metadata = await decoder.metadata();
     if (
       metadata.format !== format ||
       !metadata.width ||
       !metadata.height ||
-      metadata.width * (metadata.pageHeight ?? metadata.height) * (metadata.pages ?? 1) > FEEDBACK_LIMITS.imagePixels
+      metadata.width * (metadata.pageHeight ?? metadata.height) > FEEDBACK_LIMITS.imagePixels
     )
       throw bad();
-    return { data: await ((metadata.pages ?? 1) > 1 ? decoder : decoder.rotate()).toFormat(format).toBuffer(), extension: format };
+    return { data: await decoder.rotate().toFormat(format).toBuffer(), extension: format };
   } catch {
     throw bad();
+  } finally {
+    const next = imageWaiters.values().next().value;
+    if (next) {
+      imageWaiters.delete(next);
+      next();
+    } else imageBusy = false;
   }
 }
